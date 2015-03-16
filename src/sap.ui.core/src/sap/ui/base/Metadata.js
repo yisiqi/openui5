@@ -11,7 +11,10 @@ sap.ui.define(['jquery.sap.global', 'jquery.sap.script'],
 	/**
 	 * Creates a new metadata object from the given static infos.
 	 *
-	 * @param {string} sClassName fully qualified name of the class that is described by this metadata object
+	 * Note: throughout this class documentation, the described subclass of Object
+	 * is referenced as <i>the described class</i>.
+	 *
+	 * @param {string} sClassName fully qualified name of the described class
 	 * @param {object} oClassInfo info to construct the class and its metadata from
 	 *
 	 * @class Metadata for a class.
@@ -89,10 +92,13 @@ sap.ui.define(['jquery.sap.global', 'jquery.sap.script'],
 		this._bDeprecated = !!oStaticInfo["deprecated"];
 
 		// handle interfaces
-		this._aInterfaces = jQuery.sap.unique(oStaticInfo.interfaces || []);
+		this._aInterfaces = oStaticInfo.interfaces || [];
 	
 		// take over metadata from static info
-		this._aPublicMethods = jQuery.sap.unique(oStaticInfo.publicMethods || []);
+		this._aPublicMethods = oStaticInfo.publicMethods || [];
+
+		// interfaces info possibly not unique
+		this._bInterfacesUnique = false;
 	
 		// enrich prototype
 		oPrototype = this._oClass.prototype;
@@ -120,7 +126,8 @@ sap.ui.define(['jquery.sap.global', 'jquery.sap.script'],
 		// create the flattened "all" view
 		if ( this._oParent ) {
 			//this._aAllInterfaces = jQuery.sap.unique(this._oParent._aAllInterfaces.concat(this._aInterfaces));
-			this._aAllPublicMethods = jQuery.sap.unique(this._oParent._aAllPublicMethods.concat(this._aPublicMethods));
+			this._aAllPublicMethods = this._oParent._aAllPublicMethods.concat(this._aPublicMethods);
+			this._bInterfacesUnique = false;
 		} else {
 			//this._aAllInterfaces = this._aInterfaces;
 			this._aAllPublicMethods = this._aPublicMethods;
@@ -137,18 +144,7 @@ sap.ui.define(['jquery.sap.global', 'jquery.sap.script'],
 	};
 	
 	/**
-	 * Whether this class is deprecated and should not be used any more 
-	 * 
-	 * @return {boolean} whether this class is considered deprecated
-	 * @public
-	 * @since 1.26.4
-	 */
-	Metadata.prototype.isDeprecated = function() {
-		return this._bDeprecated;
-	};
-	
-	/**
-	 * Returns the fully qualified name of the class that is described by this metadata object
+	 * Returns the fully qualified name of the described class
 	 * @return {string} name of the described class
 	 * @public
 	 */
@@ -157,7 +153,7 @@ sap.ui.define(['jquery.sap.global', 'jquery.sap.script'],
 	};
 	
 	/**
-	 * Returns the (constructor of the) class described by this metadata object.
+	 * Returns the (constructor of the) described class
 	 * @return {function} class described by this metadata
 	 * @public
 	 */
@@ -166,7 +162,7 @@ sap.ui.define(['jquery.sap.global', 'jquery.sap.script'],
 	};
 	
 	/**
-	 * Returns the metadata object of the base class of the class described by this metadata object
+	 * Returns the metadata object of the base class of the described class
 	 * or null if the class has no (documented) base class.
 	 *
 	 * @return {sap.ui.base.Metadata} metadata of the base class
@@ -177,40 +173,56 @@ sap.ui.define(['jquery.sap.global', 'jquery.sap.script'],
 	};
 	
 	/**
-	 * Returns an array with the names of the public methods declared by this class.
+	 * Removes duplicate names in place from the interfaces and public methods members of this metadata object.
 	 *
-	 * @return {string[]} array with names of public methods declared by this class
+	 * @private
+	 */
+	Metadata.prototype._dedupInterfaces = function () {
+		if (!this._bInterfacesUnique) {
+			jQuery.sap.unique(this._aInterfaces);
+			jQuery.sap.unique(this._aPublicMethods);
+			jQuery.sap.unique(this._aAllPublicMethods);
+			this._bInterfacesUnique = true;
+		}
+	};
+
+	/**
+	 * Returns an array with the names of the public methods declared by the described class.
+	 *
+	 * @return {string[]} array with names of public methods declared by the described class
 	 * @public
 	 */
 	Metadata.prototype.getPublicMethods = function() {
+		this._dedupInterfaces();
 		return this._aPublicMethods;
 	};
 	
 	/**
-	 * Returns an array with the names of all public methods declared by this class
+	 * Returns an array with the names of all public methods declared by the described class
 	 * and its ancestors.
 	 *
-	 * @return {string[]} array with names of all public methods provided by this class and its ancestors
+	 * @return {string[]} array with names of all public methods provided by the described class and its ancestors
 	 * @public
 	 */
 	Metadata.prototype.getAllPublicMethods = function() {
+		this._dedupInterfaces();
 		return this._aAllPublicMethods;
 	};
 	
 	/**
-	 * Returns the names of interfaces implemented by this class.
+	 * Returns the names of interfaces implemented by the described class.
 	 * As the representation of interfaces is not clear yet, this method is still private.
 	 *
 	 * @return {string} array of names of implemented interfaces
 	 * @private
 	 */
 	Metadata.prototype.getInterfaces = function() {
+		this._dedupInterfaces();
 		return this._aInterfaces;
 	};
 	
 	/**
-	 * Checks whether the class described by this object or one of its ancestors
-	 * implements the given interface.
+	 * Checks whether the described class or one of its ancestor classes implements the given interface.
 	 *
 	 * @param {string} sInterface name of the interface to test for (in dot notation)
 	 * @return {boolean} whether this class implements the interface
@@ -235,12 +247,33 @@ sap.ui.define(['jquery.sap.global', 'jquery.sap.script'],
 	};
 	
 	
+	/**
+	 * Returns whether the described class is abstract
+	 * @return {boolean} whether the class is abstract
+	 * @public
+	 */
 	Metadata.prototype.isAbstract = function() {
 		return this._bAbstract;
 	};
 	
+	/**
+	 * Returns whether the described class is final
+	 * @return {boolean} whether the class is final
+	 * @public
+	 */
 	Metadata.prototype.isFinal = function() {
 		return this._bFinal;
+	};
+	
+	/**
+	 * Whether the described class is deprecated and should not be used any more 
+	 * 
+	 * @return {boolean} whether the class is considered deprecated
+	 * @public
+	 * @since 1.26.4
+	 */
+	Metadata.prototype.isDeprecated = function() {
+		return this._bDeprecated;
 	};
 	
 	/**
@@ -256,12 +289,9 @@ sap.ui.define(['jquery.sap.global', 'jquery.sap.script'],
 	 */
 	Metadata.prototype.addPublicMethods = function(sMethod /* ... */) {
 		var aNames = (sMethod instanceof Array) ? sMethod : arguments;
-		function upush(a,v) {
-			Array.prototype.push.apply(a, v); // appends "inplace"
-			jQuery.sap.unique(a);
-		}
-		upush(this._aPublicMethods, aNames);
-		upush(this._aAllPublicMethods, aNames);
+		Array.prototype.push.apply(this._aPublicMethods, aNames);
+		Array.prototype.push.apply(this._aAllPublicMethods, aNames);
+		this._bInterfacesUnique = false;
 	};
 	
 	/**

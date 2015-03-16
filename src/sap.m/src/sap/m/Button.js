@@ -103,7 +103,8 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 			 * Event is fired when the user clicks on the control.
 			 */
 			press : {}
-		}
+		},
+		designTime: true
 	}});
 
 	EnabledPropagator.call(Button.prototype);
@@ -354,7 +355,7 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 			oImage.removeStyleClass("sapMBtnBackIconLeft");
 		}
 
-		if (this.getText()) {
+		if (this._getText()) {
 			// check and set absolute position depending on icon and icon position
 			if (this.getIconFirst()) {
 				if (this.getType() === sap.m.ButtonType.Back || this.getType() === sap.m.ButtonType.Up) {
@@ -391,7 +392,7 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 
 		// add style classes to the object
 		oIcon.addStyleClass("sapMBtnIcon");
-		if (this.getText()) {
+		if (this._getText()) {
 			oIcon.addStyleClass("sapMBtnIconLeft");
 		}
 
@@ -546,7 +547,7 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 					this.$("content").removeClass("sapMBtnBackContentRight");
 				}
 
-				if (this.getText()) {
+				if (this._getText()) {
 					// check and set absolute position depending on icon and icon position
 					if (bIconFirst) {
 						if (this.getType() === sap.m.ButtonType.Back || this.getType() === sap.m.ButtonType.Up) {
@@ -570,7 +571,7 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 				this._removeTextPadding();
 
 				// Add the text padding classes
-				if (this.getText().length > 0) {
+				if (this._getText().length > 0) {
 					this._addTextPadding(bIconFirst);
 				}
 			}
@@ -594,7 +595,7 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 		}
 
 		// Search and remove padding between icon and text
-		if (!this.getText()) {
+		if (!this._getText()) {
 			if (this.$("content").hasClass("sapMBtnContentLeft")) {
 				this.$("content").removeClass("sapMBtnContentLeft");
 			}
@@ -624,7 +625,7 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 		}
 
 		// Add text padding classes between icon and text
-		if (this.getText()) {
+		if (this._getText()) {
 			if (this.getIcon()) {
 				if (this.getIconFirst()) {
 					if (this.getType() === sap.m.ButtonType.Back || this.getType() === sap.m.ButtonType.Up) {
@@ -652,6 +653,11 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 	 */
 	Button.prototype.getPopupAnchorDomRef = function() {
 		return this.getDomRef("inner");
+	};
+	
+	// A hook to be used by controls that extend sap.m.Button and want to display the text in a different way
+	Button.prototype._getText = function() {
+		return this.getText();
 	};
 
 	return Button;

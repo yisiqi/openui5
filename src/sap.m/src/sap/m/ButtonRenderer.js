@@ -43,20 +43,25 @@ sap.ui.define(['jquery.sap.global'],
 			oRm.addClass("sapMBtn");
 
 			// extend  minimum button size if icon is set without text for button types back and up
-			if ((sType === sap.m.ButtonType.Back || sType === sap.m.ButtonType.Up) && oButton.getIcon() && !oButton.getText()) {
+			if ((sType === sap.m.ButtonType.Back || sType === sap.m.ButtonType.Up) && oButton.getIcon() && !oButton._getText()) {
 				oRm.addClass("sapMBtnBack");
 			}
 		}
 
 		//ARIA attributes
-		oRm.writeAccessibilityState(oButton, {
-			disabled: !oButton.getEnabled()
-		});
+		var rb;
+		var mAccProps = {};
+		if (sType == sap.m.ButtonType.Accept || sType == sap.m.ButtonType.Reject || sType == sap.m.ButtonType.Emphasized) {
+			rb = sap.ui.getCore().getLibraryResourceBundle("sap.m");
+			mAccProps["describedby"] = {value: oButton.getId() + "-Type", append: true};
+		}
+
 
 		//descendants (e.g. ToggleButton) callback
 		if (this.renderAccessibilityAttributes) {
-			this.renderAccessibilityAttributes(oRm, oButton);
+			this.renderAccessibilityAttributes(oRm, oButton, mAccProps);
 		}
+		oRm.writeAccessibilityState(oButton, mAccProps);
 
 		// check if the button is disabled
 		if (!bEnabled) {
@@ -122,14 +127,14 @@ sap.ui.define(['jquery.sap.global'],
 				if (sType != sap.m.ButtonType.Back && sType != sap.m.ButtonType.Up) {
 					oRm.addClass("sapMBtnPaddingLeft");
 				}
-				if (oButton.getText()) {
+				if (oButton._getText()) {
 					oRm.addClass("sapMBtnPaddingRight");
 				}
 			} else {
-				if (oButton.getIcon() && oButton.getText() && oButton.getIconFirst()) {
+				if (oButton.getIcon() && oButton._getText() && oButton.getIconFirst()) {
 					oRm.addClass("sapMBtnPaddingRight");
 				}
-				if (oButton.getIcon() && oButton.getText() && !oButton.getIconFirst()) {
+				if (oButton.getIcon() && oButton._getText() && !oButton.getIconFirst()) {
 					if (sType != sap.m.ButtonType.Back && sType != sap.m.ButtonType.Up) {
 						oRm.addClass("sapMBtnPaddingLeft");
 					}
@@ -160,7 +165,7 @@ sap.ui.define(['jquery.sap.global'],
 		}
 
 		// write button text
-		if (oButton.getText()) {
+		if (oButton._getText()) {
 			oRm.write("<span");
 			oRm.addClass("sapMBtnContent");
 			// check if textDirection property is not set to default "Inherit" and add "dir" attribute
@@ -187,8 +192,29 @@ sap.ui.define(['jquery.sap.global'],
 			oRm.writeClasses();
 			oRm.writeAttribute("id", oButton.getId() + "-content");
 			oRm.write(">");
-			oRm.writeEscaped(oButton.getText());
+			oRm.writeEscaped(oButton._getText());
 			oRm.write("</span>");
+		}
+
+		// Aria desciption for type
+		var sTypeText = "";
+
+		switch (sType) {
+		case sap.m.ButtonType.Accept:
+			sTypeText = rb.getText("BUTTON_ARIA_TYPE_ACCEPT");
+			break;
+		case sap.m.ButtonType.Reject:
+			sTypeText = rb.getText("BUTTON_ARIA_TYPE_REJECT");
+			break;
+		case sap.m.ButtonType.Emphasized:
+			sTypeText = rb.getText("BUTTON_ARIA_TYPE_EMPHASIZED");
+			break;
+		default: // No need to do anything for other button types
+			break;
+		}
+
+		if (sTypeText) {
+			oRm.write("<span id=\"" + oButton.getId() +  "-Type\" style=\"display: none;\" aria-hidden=\"true\">" + sTypeText + "</span>");
 		}
 
 		// end inner button tag

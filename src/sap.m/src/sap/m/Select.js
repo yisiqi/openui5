@@ -356,6 +356,10 @@ sap.ui.define(['jquery.sap.global', './Bar', './Dialog', './InputBase', './Popov
 
 			if (oDomRef) {
 				oDomRef.setAttribute("aria-expanded", "true");
+
+				// expose a parent/child contextual relationship to assistive technologies
+				// note: the "aria-owns" attribute is set when the list is visible and in view
+				oDomRef.setAttribute("aria-owns", this.getList().getId());
 			}
 		};
 
@@ -380,6 +384,9 @@ sap.ui.define(['jquery.sap.global', './Bar', './Dialog', './InputBase', './Popov
 
 			if (oDomRef) {
 				oDomRef.setAttribute("aria-expanded", "false");
+
+				// note: the "aria-owns" attribute is removed when the list is not visible and in view
+				oDomRef.removeAttribute("aria-owns");
 			}
 		};
 
@@ -466,8 +473,6 @@ sap.ui.define(['jquery.sap.global', './Bar', './Dialog', './InputBase', './Popov
 				this._myPositions = ["begin bottom", "begin center", "begin top", "end center"];
 				this._atPositions = ["begin top", "end center", "begin bottom", "begin center"];
 			};
-
-			oPopover._setArrowPosition = function() {};
 
 			oPopover._setMinWidth = function(sWidth) {
 				this.getDomRef().style.minWidth = sWidth;
@@ -1081,7 +1086,8 @@ sap.ui.define(['jquery.sap.global', './Bar', './Dialog', './InputBase', './Popov
 		 * @protected
 		 */
 		Select.prototype.createPicker = function(sPickerType) {
-			var oPicker = this.getAggregation("picker");
+			var oPicker = this.getAggregation("picker"),
+				CSS_CLASS = SelectRenderer.CSS_CLASS;
 
 			if (oPicker) {
 				return oPicker;
@@ -1094,7 +1100,8 @@ sap.ui.define(['jquery.sap.global', './Bar', './Dialog', './InputBase', './Popov
 
 			// configuration
 			oPicker.setHorizontalScrolling(false)
-					.addStyleClass(SelectRenderer.CSS_CLASS + "Picker")
+					.addStyleClass(CSS_CLASS + "Picker")
+					.addStyleClass(CSS_CLASS + "Picker-CTX")
 					.attachBeforeOpen(this.onBeforeOpen, this)
 					.attachAfterOpen(this.onAfterOpen, this)
 					.attachBeforeClose(this.onBeforeClose, this)

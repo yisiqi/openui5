@@ -49,6 +49,7 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', 'sap/ui/thirdpa
 			this.oLoadEvent = null;
 			this.oFailedEvent = null;
 			this.oMetadata = null;
+			this.pLoaded = null;
 			this.mNamespaces = mParams.namespaces || {
 				sap:"http://www.sap.com/Protocols/SAPData",
 				m:"http://schemas.microsoft.com/ado/2007/08/dataservices/metadata",
@@ -75,56 +76,62 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', 'sap/ui/thirdpa
 		// request the metadata of the service
 		var that = this;
 		var oRequest = this._createRequest(this.sUrl);
+		
+		this.pLoaded = new Promise(function(resolve, reject) {
 
-		function _handleSuccess(oMetadata, oResponse) {
-			that.bFailed = false;
-			if (!oMetadata || !oMetadata.dataServices) {
-				var mParameters = {
-						message: "Invalid metadata document",
-						request: oRequest,
-						response: oResponse
+			function _handleSuccess(oMetadata, oResponse) {
+				that.bFailed = false;
+				if (!oMetadata || !oMetadata.dataServices) {
+					var mParameters = {
+							message: "Invalid metadata document",
+							request: oRequest,
+							response: oResponse
+					};
+					_handleError(mParameters);
+					return;
+				}
+				that.oMetadata = oMetadata;
+				that.oRequestHandle = null;
+				resolve();
+				if (that.bAsync) {
+					that.fireLoaded(that);
+				} else {
+					//delay the event so anyone can attach to this _before_ it is fired, but make
+					//sure that bLoaded is already set properly
+					that.bLoaded = true;
+					that.oLoadEvent = jQuery.sap.delayedCall(0, that, that.fireLoaded, [that]);
+				}
+			}
+	
+			function _handleError(oError) {
+				that.bFailed = true;
+				var mParams = { 
+					message: oError.message,
+					request: oError.request,
+					response: oError.response
 				};
-				_handleError(mParameters);
-				return;
+				if (oError.response) {
+					mParams.statusCode = oError.response.statusCode;
+					mParams.statusText = oError.response.statusText;
+					mParams.responseText = oError.response.body;
+				}
+	
+				if (that.oRequestHandle && that.oRequestHandle.bSuppressErrorHandlerCall) {
+					return;
+				}
+				that.oRequestHandle = null;
+				reject(mParams);
+				if (that.bAsync) {
+					that.fireFailed(mParams);
+				} else {
+					that.oFailedEvent = jQuery.sap.delayedCall(0, that, that.fireFailed, [mParams]);
+				}
 			}
-			that.oMetadata = oMetadata;
-			that.oRequestHandle = null;
-			if (that.bAsync) {
-				that.fireLoaded(that);
-			} else {
-				//delay the event so anyone can attach to this _before_ it is fired, but make
-				//sure that bLoaded is already set properly
-				that.bLoaded = true;
-				that.oLoadEvent = jQuery.sap.delayedCall(0, that, that.fireLoaded, [that]);
-			}
-		}
+	
+			// execute the request
+			that.oRequestHandle = OData.request(oRequest, _handleSuccess, _handleError, OData.metadataHandler);
+		});
 
-		function _handleError(oError) {
-			that.bFailed = true;
-			var mParams = { 
-				message: oError.message,
-				request: oError.request,
-				response: oError.response
-			};
-			if (oError.response) {
-				mParams.statusCode = oError.response.statusCode;
-				mParams.statusText = oError.response.statusText;
-				mParams.responseText = oError.response.body;
-			}
-
-			if (that.oRequestHandle && that.oRequestHandle.bSuppressErrorHandlerCall) {
-				return;
-			}
-			that.oRequestHandle = null;
-			if (that.bAsync) {
-				that.fireFailed(mParams);
-			} else {
-				that.oFailedEvent = jQuery.sap.delayedCall(0, that, that.fireFailed, [mParams]);
-			}
-		}
-
-		// execute the request
-		this.oRequestHandle = OData.request(oRequest, _handleSuccess, _handleError, OData.metadataHandler);
 	};
 
 	/**
@@ -156,6 +163,16 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', 'sap/ui/thirdpa
 	 */
 	ODataMetadata.prototype.isLoaded = function() {
 		return this.bLoaded;
+	};
+
+	/**
+	 * Returns a promise for the loaded state of the metadata
+	 * 
+	 * @public
+	 * @returns {Promise} returns a promise on metadata loaded state
+	 */
+	ODataMetadata.prototype.loaded = function() {
+		return this.pLoaded;
 	};
 
 	/**
@@ -322,11 +339,9 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', 'sap/ui/thirdpa
 					// check for navigation properties
 					// if no navigation property found we assume that the current part is a normal property so we return the current oParentEntityType
 					// which is the parent entity type of that property
-					if (oParentEntityType.navigationProperty) {
-						oResultEntityType = that._getEntityTypeByNavProperty(oParentEntityType, aParts[i]);
-						if (oResultEntityType) {
-							oParentEntityType = oResultEntityType;
-						}
+					oResultEntityType = that._getEntityTypeByNavProperty(oParentEntityType, aParts[i]);
+					if (oResultEntityType) {
+						oParentEntityType = oResultEntityType;
 					}
 
 					oEntityType = oParentEntityType;
@@ -369,14 +384,22 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', 'sap/ui/thirdpa
 	 * so further calls must not iterate the metadata structure again.
 	 * 
 	 * #/Category/CategoryName --> will get the Category entity type
+	 * @param {string} sName the qualified or unqualified name of the entity
 	 * @return {object} the entity type or null if not found
 	 */
 	ODataMetadata.prototype._getEntityTypeByName = function(sName) {
-		var oEntityType, that = this;
+		var oEntityType, that = this, sEntityName, sNamespace, iSeparator;
 		
 		if (!sName) {
 			jQuery.sap.assert(undefined, "sName not defined!");
 			return null;
+		}
+		iSeparator = sName.indexOf(".");
+		if (iSeparator > 0) {
+			sNamespace = sName.substr(0, iSeparator);
+			sEntityName = sName.substr(iSeparator + 1);
+		} else {
+			sEntityName = sName;
 		}
 		if (!this.oMetadata || jQuery.isEmptyObject(this.oMetadata)) {
 			jQuery.sap.assert(undefined, "No metadata loaded!");
@@ -386,9 +409,9 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', 'sap/ui/thirdpa
 			oEntityType = this.mEntityTypes[sName];
 		} else {
 			jQuery.each(this.oMetadata.dataServices.schema, function(i, oSchema) {
-				if (oSchema.entityType) {
+				if (oSchema.entityType && (!sNamespace || oSchema.namespace === sNamespace)) {
 					jQuery.each(oSchema.entityType, function(k, oEntity) {
-						if (oEntity.name === sName) {
+						if (oEntity.name === sEntityName) {
 							oEntityType = oEntity;
 							that.mEntityTypes[sName] = oEntityType;
 							oEntityType.namespace = oSchema.namespace;
@@ -693,7 +716,9 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', 'sap/ui/thirdpa
 	
 	ODataMetadata.prototype._getEntityTypeByNavProperty = function(oEntityType, sNavPropertyName) {
 		var that = this, aAssociationName, oAssociation, aEntityTypeName, oNavEntityType;
-	
+		if (!oEntityType.navigationProperty) {
+			return undefined;
+		}
 		jQuery.each(oEntityType.navigationProperty, function(k, oNavigationProperty) {
 			if (oNavigationProperty.name === sNavPropertyName) {
 				// get association for navigation property and then the collection name
@@ -818,6 +843,37 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', 'sap/ui/thirdpa
 		return oRequest;
 	};
 
+	/**
+	 * Returns the entity set to which the given entity path belongs
+	 * 
+	 * @param {string} sEntityPath The path to the entity
+	 * @return {map|undefined} The EntitySet to which the path belongs or undefined if none
+	 */
+	ODataMetadata.prototype._getEntitySetByPath = function(sEntityPath) {
+		if (!this._entitySetMap) {
+			// Cache results of entity set lookup
+			this._entitySetMap = {};
+			this.oMetadata.dataServices.schema.forEach(function(mShema) {
+				if (mShema.entityContainer) {
+					mShema.entityContainer.forEach(function(mContainer) {
+						if (mContainer.entitySet) {
+							mContainer.entitySet.forEach(function(mEntitySet) {
+								this._entitySetMap[mEntitySet.entityType] = mEntitySet;
+							}, this);
+						}
+					}, this);
+				}
+			}, this);
+		}
+
+		var oEntityType = this._getEntityTypeByPath(sEntityPath);
+
+		if (oEntityType) {
+			return this._entitySetMap[oEntityType.entityType];
+		}
+
+		return;
+	};
 
 	return ODataMetadata;
 

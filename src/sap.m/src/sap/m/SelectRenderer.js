@@ -71,10 +71,10 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/core/Renderer', 'sap/ui/core/ValueSt
 			}
 
 			oRm.write(">");
+			this.renderLabel(oRm, oSelect);
 
 			switch (sType) {
 				case sap.m.SelectType.Default:
-					this.renderLabel(oRm, oSelect);
 					this.renderArrow(oRm, oSelect);
 					break;
 
@@ -166,6 +166,8 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/core/Renderer', 'sap/ui/core/ValueSt
 				oRm.writeAttributeEscaped("name", sName);
 			}
 
+			oRm.writeAttribute("id", oSelect.getId() + "-select");
+			oRm.writeAttribute("aria-hidden", "true");
 			oRm.writeAttribute("tabindex", "-1");
 			oRm.write(">");
 			this.renderOptions(oRm, oSelect, sSelectedItemText);

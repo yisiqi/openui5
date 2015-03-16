@@ -14,7 +14,8 @@ sap.ui.core.UIComponent.extend("sap.m.sample.MessageBox.Component", {
 			sample : {
 				files : [
 					"V.view.xml",
-					"C.controller.js"
+					"C.controller.js",
+					"Layout.fragment.xml"
 				]
 			}
 		}

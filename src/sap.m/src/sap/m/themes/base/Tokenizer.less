@@ -16,9 +16,24 @@
 	padding-top: 0;
 	padding-bottom: 0;
 	height: 1.625rem;
-
-	// need this for truncation
 	display: inline-block;
+}
+
+.sap-phone .sapMTokenizerMultiLine {
+	padding-left: 1rem;
+	padding-right: 1rem;
+}
+
+.sap-phone .sapMTokenizerMultiLine > .sapMTokenizerScrollContainer > .sapMToken {
+	display: table;
+}
+
+.sapMMultiInputMultiModeBorder .sapMTokenizer{
+	white-space: normal;
+}
+
+.sapMMultiInputMultiModeBorder .sapMTokenizer .sapMToken{
+	margin-bottom: 0;
 }
 
 .sapUiSizeCompact .sapMTokenizer .sapMToken{
@@ -26,6 +41,10 @@
 	margin-top: 0.125rem;
 	margin-bottom: 0.125rem;
 	margin-right: 0.125rem;
+}
+
+.sapUiSizeCompact .sapMMultiInputMultiModeBorder .sapMTokenizer .sapMToken{
+	margin-bottom: -0.125rem;
 }
 
 .sapMTokenizer:focus{

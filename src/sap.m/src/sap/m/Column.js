@@ -88,18 +88,15 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Element', 'sap/ui/
 			popinHAlign : {type : "sap.ui.core.TextAlign", group : "Appearance", defaultValue : sap.ui.core.TextAlign.Begin, deprecated: true},
 	
 			/**
-			 * Defines the display options of pop-in.
-			 * Possible values are
-			 * 1 - "Block"(Header is displayed in first line and value field in next line.)
-			 * 2 - "Inline" (Value field is displayed next to the header in same line.)
+			 * Defines enumerated display options for the pop-in.
 			 * @since 1.13.2
 			 */
 			popinDisplay : {type : "sap.m.PopinDisplay", group : "Appearance", defaultValue : sap.m.PopinDisplay.Block},
 	
 			/**
-			 * Set "true" to merge repeating cells(duplicates) into one.
-			 * Also see "mergeFunctionName" property to customize.
-			 * Note: this property gets disabled if any column is in pop-in!
+			 * Set "true" to merge repeating cells(duplicates) into one cell block.
+			 * Please see "mergeFunctionName" property to customize this property.
+			 * Note: This feature should not be enabled when two-way binding is in use. Also this property gets disabled if any column is in pop-in.
 			 * @since 1.16
 			 */
 			mergeDuplicates : {type : "boolean", group : "Behavior", defaultValue : false},
@@ -399,10 +396,12 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Element', 'sap/ui/
 			cells = oTableDomRef.querySelectorAll("tr > td:nth-child(" + i + ")"),
 			length = cells.length;
 	
-		// set display
+		// set display and aria
 		header.style.display = display;
+		header.setAttribute("aria-hidden", !bDisplay);
 		for (i = 0; i < length; i++) {
 			cells[i].style.display = display;
+			cells[i].setAttribute("aria-hidden", !bDisplay);
 		}
 	
 		// let the parent know the visibility change
@@ -439,10 +438,10 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Element', 'sap/ui/
 	Column.prototype.setVisible = function(bVisible) {
 		var oParent = this.getParent(),
 			oTableDomRef = oParent && oParent.getTableDomRef && oParent.getTableDomRef(),
-			bInvalidate = oTableDomRef && this._index >= 0;
+			bSupressInvalidate = oTableDomRef && this._index >= 0;
 	
-		this.setProperty("visible", bVisible, bInvalidate);
-		if (bInvalidate) {
+		this.setProperty("visible", bVisible, bSupressInvalidate);
+		if (bSupressInvalidate) {
 			this.setDisplay(oTableDomRef, bVisible);
 		}
 	

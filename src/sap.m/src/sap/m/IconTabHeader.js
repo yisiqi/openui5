@@ -209,16 +209,6 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 		}
 	};
 
-	IconTabHeader.prototype.invalidate = function() {
-		if (this.getParent() instanceof sap.m.IconTabBar && !this.getParent()._bHideHeader) {
-			// invalidate IconTabBar when the header is attached to it
-			this.getParent().invalidate();
-		} else {
-			// invalidate just the header when it is detached (IconTabFilter will do the magic for content invalidation)
-			Control.prototype.invalidate.apply(this, arguments);
-		}
-	};
-
 	/**
 	 * Sets the selected item based on key
 	 * @overwrite
@@ -957,7 +947,7 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 		//if the browser is IE prevent click events on dom elements in the tab, because the IE will focus them, not the tab itself.
 		if (sap.ui.Device.browser.internet_explorer) {
 			var $target = jQuery(oEvent.target);
-			if ($target.hasClass('sapMITBFilterIcon') || $target.hasClass('sapMITBCount') || $target.hasClass('sapMITBText') || $target.hasClass('sapMITBTab') || $target.hasClass('sapMITBContentArrow')) {
+			if ($target.hasClass('sapMITBFilterIcon') || $target.hasClass('sapMITBCount') || $target.hasClass('sapMITBText') || $target.hasClass('sapMITBTab') || $target.hasClass('sapMITBContentArrow') || $target.hasClass('sapMITBSep') || $target.hasClass('sapMITBSepIcon')) {
 				oEvent.preventDefault();
 			}
 		}
@@ -989,11 +979,11 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 	 * @private
 	 */
 	IconTabHeader.prototype.ontouchend = function(oEvent) {
-		// suppress selection if there ware a drag (moved more than 20px)
-		if (this._iTouchDragX > 5 || oEvent.isMarked()) {
+		// suppress selection if there ware a drag (moved more than 5px on desktop or 20px on others)
+		if (this._scrollable && this._iTouchDragX > (sap.ui.Device.system.desktop ? 5 : 15)) {
 			return;
 		}
-		//
+
 		this._handleActivation(oEvent);
 	};
 

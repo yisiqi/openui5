@@ -52,6 +52,13 @@ sap.ui.define(['jquery.sap.global'],
 				oTable.getSelectionBehavior() !== sap.ui.table.SelectionBehavior.RowOnly) {
 			rm.addClass("sapUiTableRSel"); // show row selector
 		}
+
+		// This class flags whether the sap.m. library is loaded or not.
+		var sSapMTableClass = sap.ui.table.TableHelper.addTableClass();
+		if (sSapMTableClass) {
+			rm.addClass(sSapMTableClass);
+		}
+
 		rm.addClass("sapUiTableSelMode" + oTable.getSelectionMode()); // row selection mode
 		//rm.addClass("sapUiTableHScr"); // show horizontal scrollbar
 		if (oTable.getNavigationMode() === sap.ui.table.NavigationMode.Scrollbar) {
@@ -868,6 +875,7 @@ sap.ui.define(['jquery.sap.global'],
 			rm.write("<td");
 			var sId = oRow.getId() + "-col" + iCellIndex;
 			rm.writeAttribute("id", sId);
+			rm.writeAttribute("tabindex", "-1");
 			if (oTable._bAccMode) {
 				// correct would be aria-labelledby but doesn't work for JAWS
 				rm.writeAttribute("headers", oTable.getId() + "_col" + iColIndex);
@@ -883,7 +891,6 @@ sap.ui.define(['jquery.sap.global'],
 				rm.writeAttribute("aria-labelledby", sLabelledBy);
 				rm.writeAttribute("aria-describedby", oTable.getId() + "-toggleedit");
 				rm.writeAttribute("aria-activedescendant", oCell.getId());
-				rm.writeAttribute("tabindex", "-1");
 				if (oTable.getSelectionMode() === sap.ui.table.SelectionMode.Multi) {
 					rm.writeAttribute("aria-selected", "false");
 				}
@@ -908,7 +915,6 @@ sap.ui.define(['jquery.sap.global'],
 			rm.writeClasses();
 			
 			if (oTable.getRowHeight() && oTable.getVisibleRowCountMode() == sap.ui.table.VisibleRowCountMode.Auto) {
-				rm.addStyle("height", oTable.getRowHeight() + "px");
 				rm.addStyle("max-height", oTable.getRowHeight() + "px");
 			}
 			rm.writeStyles();

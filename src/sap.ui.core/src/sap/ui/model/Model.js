@@ -3,8 +3,8 @@
  */
 
 // Provides the base implementation for all model implementations
-sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', './BindingMode', './Context'],
-	function(jQuery, EventProvider, BindingMode, Context) {
+sap.ui.define(['jquery.sap.global', 'sap/ui/core/message/MessageProcessor', './BindingMode', './Context'],
+	function(jQuery, MessageProcessor, BindingMode, Context) {
 	"use strict";
 
 
@@ -15,6 +15,8 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', './BindingMode'
 	 * are one way, two way and one time. The default binding mode can be changed by the application for each model instance.
 	 * A model implementation should specify its supported binding modes and set the default binding mode accordingly
 	 * (e.g. if the model supports only one way binding the default binding mode should also be set to one way).
+	 * 
+	 * This MessageProcessor is able to handle Messages with the normal binding syntax as target.
 	 *
 	 * @namespace
 	 * @name sap.ui.model
@@ -28,7 +30,7 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', './BindingMode'
 	 * This is an abstract base class for model objects.
 	 * @abstract
 	 *
-	 * @extends sap.ui.base.EventProvider
+	 * @extends sap.ui.core.message.MessageProcessor
 	 *
 	 * @author SAP SE
 	 * @version ${version}
@@ -37,10 +39,10 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', './BindingMode'
 	 * @public
 	 * @alias sap.ui.model.Model
 	 */
-	var Model = EventProvider.extend("sap.ui.model.Model", /** @lends sap.ui.model.Model.prototype */ {
+	var Model = MessageProcessor.extend("sap.ui.model.Model", /** @lends sap.ui.model.Model.prototype */ {
 
 		constructor : function () {
-			EventProvider.apply(this, arguments);
+			MessageProcessor.apply(this, arguments);
 
 			this.oData = {};
 			this.bDestroyed = false;
@@ -409,7 +411,16 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', './BindingMode'
 		return this;
 	};
 
-
+	Model.prototype.attachMessageChange = function(oData, fnFunction, oListener) {
+		this.attachEvent("messageChange", oData, fnFunction, oListener);
+		return this;
+	};
+	
+	Model.prototype.detachMessageChange = function(fnFunction, oListener) {
+		this.detachEvent("messageChange", fnFunction, oListener);
+		return this;
+	};
+	
 	// the 'abstract methods' to be implemented by child classes
 
 	/**
@@ -717,6 +728,9 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', './BindingMode'
 	 */
 	Model.prototype.refresh = function(bForceUpdate) {
 		this.checkUpdate(bForceUpdate);
+		if (bForceUpdate) {
+			this.fireMessageChange({oldMessages: this.mMessages});
+		}
 	};
 
 	/**
@@ -785,6 +799,8 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', './BindingMode'
 	 * @public
 	 */
 	Model.prototype.destroy = function() {
+		MessageProcessor.prototype.destroy.apply(this, arguments);
+
 		this.oData = {};
 		this.aBindings = [];
 		this.mContexts = {};
@@ -792,7 +808,6 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider', './BindingMode'
 			jQuery.sap.clearDelayedCall(this.sUpdateTimer);
 		}
 		this.bDestroyed = true;
-		EventProvider.prototype.destroy.apply(this, arguments);
 	};
 
 	/**

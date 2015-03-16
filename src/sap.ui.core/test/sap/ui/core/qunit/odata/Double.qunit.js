@@ -30,54 +30,9 @@
 		ok(oType instanceof sap.ui.model.odata.type.Double, "is a Double");
 		ok(oType instanceof sap.ui.model.odata.type.ODataType, "is a ODataType");
 		strictEqual(oType.getName(), "sap.ui.model.odata.type.Double", "type name");
+		strictEqual(oType.oFormatOptions, undefined, "default format options");
 		strictEqual(oType.oConstraints, undefined, "default constraints");
 		strictEqual(oType.oFormat, null, "no formatter preload");
-	});
-
-	//*********************************************************************************************
-	test("w/ float format options", function () {
-		var oType = new sap.ui.model.odata.type.Double({
-				minIntegerDigits: 5,
-				maxIntegerDigits: 5,
-				minFractionDigits: 5,
-				maxFractionDigits: 5,
-				pattern: "",
-				groupingEnabled: false,
-				groupingSeparator: "'",
-				decimalSeparator: ",",
-				plusSign: '+',
-				minusSign: '-',
-				showMeasure: true,
-				style: 'short',
-				roundingMode: 'floor'
-			});
-
-		strictEqual(oType.oFormatOptions, undefined, "float format options are ignored");
-	});
-
-//*********************************************************************************************
-	jQuery.each([
-		{i: {}, o: undefined},
-		{i: {nullable: true}, o: undefined},
-		{i: {nullable: false}, o: {nullable: false}},
-		{i: {nullable: "true"}, o: undefined},
-		{i: {nullable: "false"}, o: {nullable: false}},
-		{i: {nullable: "foo"}, o: undefined, warning: "Illegal nullable: foo"},
-	], function (i, oFixture) {
-		test("constraints: " + JSON.stringify(oFixture.i) + ")", function () {
-			var oType;
-
-			if (oFixture.warning) {
-				this.mock(jQuery.sap.log).expects("warning")
-					.once().withExactArgs(oFixture.warning, null,
-						"sap.ui.model.odata.type.Double");
-			} else {
-				this.mock(jQuery.sap.log).expects("warning").never();
-			}
-
-			var oType = new sap.ui.model.odata.type.Double({}, oFixture.i);
-			deepEqual(oType.oConstraints, oFixture.o);
-		});
 	});
 
 	//*********************************************************************************************
@@ -111,23 +66,12 @@
 
 	//*********************************************************************************************
 	test("format: modified Swedish", function () {
-		var oType,
-			fnLocaleData = sap.ui.core.LocaleData.getInstance;
-
-		sinon.stub(sap.ui.core.LocaleData, "getInstance", function () {
-			var oLocaleData = fnLocaleData.apply(this, arguments);
-			oLocaleData.mData["symbols-latn-plusSign"] = ">";
-			oLocaleData.mData["symbols-latn-minusSign"] = "<";
-			return oLocaleData;
-		});
+		var oType = new sap.ui.model.odata.type.Double({plusSign: ">", minusSign: "<"});
 
 		// Swedish is interesting because it uses a different decimal separator, non-breaking
-		// space as grouping separator and _not_ the 'E' for the exponential format. We did not
-		// find any locale using different characters for plus or minus sign, so we modify the
-		// LocaleData here.
+		// space as grouping separator and _not_ the 'E' for the exponential format.
 		// TODO The 'e' is not replaced because NumberFormat doesn't care either (esp. in parse).
 		sap.ui.getCore().getConfiguration().setLanguage("sv");
-		oType = new sap.ui.model.odata.type.Double();
 
 		strictEqual(oType.formatValue("-1.234e+3", "string"), "<1\u00a0234", "check modification");
 		strictEqual(oType.formatValue("-1.234e+15", "string"), "<1,234\u00a0E>15",
@@ -138,70 +82,28 @@
 	test("parse", function () {
 		var oType = new sap.ui.model.odata.type.Double();
 
-		strictEqual(oType.parseValue(null, "foo"), null, "null is always accepted");
-		strictEqual(oType.parseValue("", "string"), null, "empty string becomes null");
-
-		strictEqual(oType.parseValue("1,234", "string"), "1.234e+3", "type string");
-		strictEqual(oType.parseValue("-12345", "string"), "-1.2345e+4", "type string");
-		strictEqual(oType.parseValue("12.345E-3", "string"), "1.2345e-2", "type string w/ exp");
-		strictEqual(oType.parseValue("12.345 E-3", "string"), "1.2345e-2",
-			"type string w/ exp and space");
-		strictEqual(oType.parseValue("12.345\u00a0E-3", "string"), "1.2345e-2",
-			"type string w/ exp and non-breaking space");
-		strictEqual(oType.parseValue(1234, "int"), "1.234e+3", "type int");
-		strictEqual(oType.parseValue(1234.567, "float"), "1.234567e+3", "type float");
-
 		try {
-			oType.parseValue(true, "boolean");
+			oType.parseValue("4.2", "string");
 			ok(false);
 		} catch (e) {
 			ok(e instanceof sap.ui.model.ParseException);
-			strictEqual(e.message,
-				"Don't know how to parse sap.ui.model.odata.type.Double from boolean");
+			strictEqual(e.message, "Unsupported operation: data type " + oType.getName()
+				+ " is read-only.");
 		}
 	});
 
 	//*********************************************************************************************
-	test("parse: user error", function () {
-		sap.ui.test.TestUtils.withNormalizedMessages(function () {
-			var oType = new sap.ui.model.odata.type.Double();
-
-			try {
-				oType.parseValue("foo", "string");
-				ok(false);
-			} catch (e) {
-				ok(e instanceof sap.ui.model.ParseException);
-				strictEqual(e.message, "EnterNumber");
-			}
-		});
-	});
-
-	//*********************************************************************************************
-	jQuery.each([false, null, 1, {}, "foo", "1.1", "1234"], function (i, sValue) {
-		test("validate errors: " + JSON.stringify(sValue), function () {
-			sap.ui.test.TestUtils.withNormalizedMessages(function () {
-				var oType = new sap.ui.model.odata.type.Double({}, {nullable: false});
-
-				try {
-					oType.validateValue(sValue);
-					ok(false);
-				} catch (e) {
-					ok(e instanceof sap.ui.model.ValidateException);
-					strictEqual(e.message, "EnterNumber");
-				}
-			});
-		});
-	});
-
-	//*********************************************************************************************
-	test("validate success", 0, function () {
+	test("validate", function () {
 		var oType = new sap.ui.model.odata.type.Double();
 
-		jQuery.each([null, "+1.1e0", "+1.123E-4", "-1e+5", "+1.234E+235", "1e10"],
-			function (i, sValue) {
-				oType.validateValue(sValue);
-			}
-		);
+		try {
+			oType.validateValue(42);
+			ok(false);
+		} catch (e) {
+			ok(e instanceof sap.ui.model.ValidateException);
+			strictEqual(e.message, "Unsupported operation: data type " + oType.getName()
+				+ " is read-only.");
+		}
 	});
 
 	//*********************************************************************************************
@@ -217,5 +119,23 @@
 			"adjusted to changed language");
 	});
 
-	// TODO precision (max 15 according to spec)
+	//*********************************************************************************************
+	jQuery.each([{
+		set: {foo: "bar"},
+		expect: {foo: "bar", groupingEnabled: true}
+	}, {
+		set: {decimals: 7, groupingEnabled: false},
+		expect: {decimals: 7, groupingEnabled: false}
+	}], function (i, oFixture) {
+		test("formatOptions: " + JSON.stringify(oFixture.set), function () {
+			var oSpy,
+				oType = new sap.ui.model.odata.type.Double(oFixture.set);
+
+			deepEqual(oType.oFormatOptions, oFixture.set);
+
+			oSpy = this.spy(sap.ui.core.format.NumberFormat, "getFloatInstance");
+			oType.formatValue(42, "string");
+			sinon.assert.calledWithExactly(oSpy, oFixture.expect);
+		});
+	});
 } ());

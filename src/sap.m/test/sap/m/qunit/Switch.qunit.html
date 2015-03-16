@@ -346,6 +346,7 @@
 					ok(mDomRefs.$SwtTextOff.length, "The switch html div text element exists");
 					ok(mDomRefs.$SwtSpanOn.length, "The switch html span inner element exists");
 					ok(mDomRefs.$SwtSpanOff.length, "The switch html span inner element exists");
+					strictEqual(oSwitch.getDomRef().getAttribute("aria-live"), "assertive", "The switch is a live region");
 
 					if (mDomRefs.oSwitch.getName()) {
 						ok(mDomRefs.$Checkbox.length, 'The checkbox html input element exists');
@@ -353,6 +354,25 @@
 
 					ok(oSwitch.$("handle").length, "The switch handle html div element exists");
 				});
+			});
+
+			test("A Switch control type of AcceptReject should render invisible elements with the corresponding text nodes for screen reader announcement", function() {
+
+				// system under test
+				var oSwitch = new sap.m.Switch({
+					type: sap.m.SwitchType.AcceptReject
+				});
+
+				// arrange
+				oSwitch.placeAt("content");
+				sap.ui.getCore().applyChanges();
+
+				// assert
+				strictEqual(oSwitch.getDomRef("texton").textContent, sap.ui.getCore().getLibraryResourceBundle("sap.m").getText("SWITCH_ARIA_ACCEPT"));
+				strictEqual(oSwitch.getDomRef("textoff").textContent, sap.ui.getCore().getLibraryResourceBundle("sap.m").getText("SWITCH_ARIA_REJECT"));
+
+				// cleanup
+				oSwitch.destroy();
 			});
 
 			/* =========================================================== */

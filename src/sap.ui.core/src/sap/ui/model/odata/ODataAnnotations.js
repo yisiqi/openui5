@@ -20,6 +20,27 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider'],
 		AnnotationPath: true
 	};
 
+	var mTextNodeWhitelist = {
+		Binary: true,
+		Bool: true,
+		Date: true,
+		DateTimeOffset: true,
+		Decimal: true,
+		Duration: true,
+		Float: true,
+		Guid: true,
+		Int: true,
+		String: true,
+		TimeOfDay: true,
+
+		LabelElementReference: true,
+		EnumMember: true,
+		Path: true,
+		PropertyPath: true,
+		NavigationPropertyPath: true,
+		AnnotationPath: true
+	};
+
 	/**
 	 * !!! EXPERIMENTAL !!!
 	 *
@@ -107,16 +128,6 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider'],
 	 * Checks whether annotations loading has already failed.
 	 * Note:
 	 * For asynchronous annotations {@link #attachFailed} has to be used also.
-	 *
-	 * @public
-	 * @returns {boolean} whether annotations request has failed
-	 */
-	ODataAnnotations.prototype.isFailed = function() {
-		return this.error !== null;
-	};
-
-	/**
-	 * Fire event loaded to attached listeners.
 	 *
 	 * @public
 	 * @returns {boolean} whether annotations request has failed
@@ -333,12 +344,34 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider'],
 			}
 			annotation = annotationTarget;
 			propertyAnnotation = null;
+			var sContainerAnnotation = null;
 			if (annotationTarget.indexOf("/") > 0) {
 				annotation = annotationTarget.split("/")[0];
-				propertyAnnotation = annotationTarget.replace(annotation + "/", "");
-			}
-			if (!mappingList[annotation]) {
-				mappingList[annotation] = {};
+				// check sAnnotation is EntityContainer: if yes, something in there is annotated - EntitySet, FunctionImport, ..
+				var bSchemaExists = 
+					this.oServiceMetadata.dataServices && 
+					this.oServiceMetadata.dataServices.schema && 
+					this.oServiceMetadata.dataServices.schema.length;
+
+				if (bSchemaExists) {
+					for (var j = this.oServiceMetadata.dataServices.schema.length - 1; j >= 0; j--) {
+						var oMetadataSchema = this.oServiceMetadata.dataServices.schema[j];
+						if (oMetadataSchema.entityContainer) {
+							var aAnnotation = annotation.split('.');
+							for (var k = oMetadataSchema.entityContainer.length - 1; k >= 0; k--) {
+								if (oMetadataSchema.entityContainer[k].name === aAnnotation[aAnnotation.length - 1] ) {
+									sContainerAnnotation = annotationTarget.replace(annotation + "/", "");
+									break;
+								}
+							}
+						}
+					}
+				}
+
+				//else - it's a property annotation
+				if (!sContainerAnnotation) {
+					propertyAnnotation = annotationTarget.replace(annotation + "/", "");
+				}
 			}
 			// --- Value annotation of complex types. ---
 			if (propertyAnnotation) {
@@ -356,7 +389,7 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider'],
 				for (var nodeIndexValue = 0; nodeIndexValue < propertyAnnotationNodes.length; nodeIndexValue += 1) {
 					propertyAnnotationNode = this.xPath.nextNode(propertyAnnotationNodes, nodeIndexValue);
 					sTermValue = this.replaceWithAlias(propertyAnnotationNode.getAttribute("Term"), oAlias);
-					var sQualifierValue = propertyAnnotationNode.getAttribute("Qualifier");
+					var sQualifierValue = annotationNode.getAttribute("Qualifier") || propertyAnnotationNode.getAttribute("Qualifier");
 					if (sQualifierValue) {
 						sTermValue += "#" + sQualifierValue;
 					}
@@ -370,18 +403,44 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider'],
 				}
 				// --- Annotations ---
 			} else {
+				var mTarget;
+				if (sContainerAnnotation) {
+					// Target is an entity container
+					if (!mappingList["EntityContainer"]) {
+						mappingList["EntityContainer"] = {};
+					}
+					if (!mappingList["EntityContainer"][annotation]) {
+						mappingList["EntityContainer"][annotation] = {};
+					}
+					mTarget = mappingList["EntityContainer"][annotation];
+				} else {
+					if (!mappingList[annotation]) {
+						mappingList[annotation] = {};
+					}
+					mTarget = mappingList[annotation];
+				}
+
 				targetAnnotation = annotation.replace(oAlias[annotationNamespace], annotationNamespace);
 				propertyAnnotationNodes = this.xPath.selectNodes(oXMLDoc, "./d:Annotation", annotationNode);
 				for (var nodeIndexAnnotation = 0; nodeIndexAnnotation < propertyAnnotationNodes.length; nodeIndexAnnotation += 1) {
 					propertyAnnotationNode = this.xPath.nextNode(propertyAnnotationNodes, nodeIndexAnnotation);
-					annotationQualifier = propertyAnnotationNode.getAttribute("Qualifier");
+					annotationQualifier = annotationNode.getAttribute("Qualifier") || propertyAnnotationNode.getAttribute("Qualifier");
 					annotationTerm = this.replaceWithAlias(propertyAnnotationNode.getAttribute("Term"), oAlias);
 					if (annotationQualifier) {
 						annotationTerm += "#" + annotationQualifier;
 					}
 					valueAnnotation = this.getPropertyValue(oXMLDoc, propertyAnnotationNode, oAlias);
 					valueAnnotation = this.setEdmTypes(valueAnnotation, oMetadataProperties.types, annotation, oSchema);
-					mappingList[annotation][annotationTerm] = valueAnnotation;
+
+					if (!sContainerAnnotation) {
+						mTarget[annotationTerm] = valueAnnotation;
+					} else {
+						if (!mTarget[sContainerAnnotation]) {
+							mTarget[sContainerAnnotation] = {};
+						}
+						mTarget[sContainerAnnotation][annotationTerm] = valueAnnotation;
+					}
+
 				}
 				// --- Setup of Expand nodes. ---
 				expandNodes = this.xPath.selectNodes(oXMLDoc, "//d:Annotations[contains(@Target, '" + targetAnnotation
@@ -825,41 +884,41 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider'],
 		}
 	};
 	ODataAnnotations.prototype.getPropertyValueAttributes = function(documentNode, oAlias) {
-		var attrName = "", attrValue = "", i, propertyValueAttributes = {};
+		var sKey = "", sValue = "", i, propertyValueAttributes = {};
 		for (i = 0; i < documentNode.attributes.length; i += 1) {
 			var sAttrName = documentNode.attributes[i].name;
 			if (sAttrName !== "Property" && sAttrName !== "Term" && sAttrName !== "Qualifier") {
-				attrName = documentNode.attributes[i].name;
-				attrValue = documentNode.attributes[i].value;
+				sKey = documentNode.attributes[i].name;
+				sValue = documentNode.attributes[i].value;
 			}
-		}
-		if (attrName.length > 0) {
-			propertyValueAttributes[attrName] = this.replaceWithAlias(attrValue, oAlias);
+			if (sKey) {
+				propertyValueAttributes[sKey] = this.replaceWithAlias(sValue, oAlias);
+			}
 		}
 		return propertyValueAttributes;
 	};
 
 	ODataAnnotations.prototype.getSimpleNodeValue = function(xmlDoc, documentNode) {
-		var oValue = {}, stringValueNodes, stringValueNode, pathValueNodes, pathValueNode, applyValueNodes, applyValueNode;
-		if (documentNode.hasChildNodes()) {
-			stringValueNodes = this.xPath.selectNodes(xmlDoc, "./d:String", documentNode);
-			if (stringValueNodes.length > 0) {
-				stringValueNode = this.xPath.nextNode(stringValueNodes, 0);
-				oValue["String"] = this.xPath.getNodeText(stringValueNode);
-			} else {
-				pathValueNodes = this.xPath.selectNodes(xmlDoc, "./d:Path", documentNode);
-				if (pathValueNodes.length > 0) {
-					pathValueNode = this.xPath.nextNode(pathValueNodes, 0);
-					oValue["Path"] = this.xPath.getNodeText(pathValueNode);
-				} else {
-					applyValueNodes = this.xPath.selectNodes(xmlDoc, "./d:Apply", documentNode);
-					if (applyValueNodes.length > 0) {
-						applyValueNode = this.xPath.nextNode(applyValueNodes, 0);
-						oValue["Apply"] = this.getApplyFunctions(xmlDoc, applyValueNode, this.xPath);
-					}
-				}
+		var oValue = {};
+
+		var oValueNodes = this.xPath.selectNodes(xmlDoc, "./d:String | ./d:Path | ./d:Apply", documentNode);
+		for (var i = 0; i < oValueNodes.length; ++i) {
+			var oValueNode = this.xPath.nextNode(oValueNodes, i);
+			var vValue;
+
+			switch (oValueNode.nodeName) {
+				case "Apply":
+					vValue = this.getApplyFunctions(xmlDoc, oValueNode, this.xPath);
+					break;
+
+				default:
+					vValue = this.xPath.getNodeText(oValueNode);
+					break;
 			}
+
+			oValue[oValueNode.nodeName] = vValue;
 		}
+
 		return oValue;
 	};
 	ODataAnnotations.prototype.getPropertyValue = function(xmlDoc, documentNode, oAlias) {
@@ -941,12 +1000,16 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/EventProvider'],
 										propertyValue[oOtherNode.nodeName] = vValue;
 									}
 								}
-							} else {
+							} else if (documentNode.nodeName in mTextNodeWhitelist) {
 								// hasChildNodes, but selectNodes found nothing - it should be a text node
 								if (documentNode.nodeName in mAliasNodeWhitelist) {
 									propertyValue = this.replaceWithAlias(this.xPath.getNodeText(documentNode), oAlias);
 								} else {
 									propertyValue = this.xPath.getNodeText(documentNode);
+								}
+								if (documentNode.nodeName !== "String") {
+									// Trim whitespace if it's not specified as string values
+									propertyValue = propertyValue.replace(/^[ \t\n\r]*(.*?)[ \t\n\r]*$/, "$1");
 								}
 							}
 						}

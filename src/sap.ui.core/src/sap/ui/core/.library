@@ -87,6 +87,7 @@
         <raw-module name="sap/ui/thirdparty/mobiscroll/js/mobiscroll-datetime.js" depends="sap/ui/thirdparty/jquery/jquery-1.11.1.js,sap/ui/thirdparty/mobiscroll/js/mobiscroll-core.js,sap/ui/thirdparty/mobiscroll/js/mobiscroll-scroller.js" />
         <raw-module name="sap/ui/thirdparty/punycode.js" />
         <raw-module name="sap/ui/thirdparty/qunit.js" />
+        <raw-module name="sap/ui/thirdparty/qunit-composite.js" depends="sap/ui/thirdparty/qunit.js" />
         <raw-module name="sap/ui/thirdparty/qunit-reporter-junit.js" depends="sap/ui/thirdparty/qunit.js" />
         <raw-module name="sap/ui/thirdparty/require.js" />
         <raw-module name="sap/ui/thirdparty/SecondLevelDomains.js" />
@@ -126,9 +127,6 @@
         <exclude name="jquery-ui-core.js" /> 
         <exclude name="jquery-ui-datepicker.js" />
         <exclude name="jquery-ui-position.js" />
-        <exclude name="sap/ui/qunit/qunit.js" />
-        <exclude name="sap/ui/qunit/qunit-composite.js" />
-        <exclude name="sap/ui/qunit/qunit-reporter-junit.js" />
         <exclude name="sap/ui/model/odata/datajs.js" />
         <!-- Third party libs which should NOT be part of the all-in-one file -->
         <exclude name="sap/ui/thirdparty/blanket.js" />
@@ -172,6 +170,7 @@
         <exclude name="sap/ui/thirdparty/jszip.js" />
         <exclude name="sap/ui/thirdparty/punycode.js" />
         <exclude name="sap/ui/thirdparty/qunit.js" />
+        <exclude name="sap/ui/thirdparty/qunit-composite.js" />
         <exclude name="sap/ui/thirdparty/qunit-reporter-junit.js" />
         <exclude name="sap/ui/thirdparty/require.js" />
         <exclude name="sap/ui/thirdparty/signals.js" />
@@ -236,8 +235,8 @@
         <lib name="jquery_mobile" displayName="jQuery Mobile" homepage="http://jquerymobile.com">
         	<license url="http://jQuery.org/license" type="MIT License" file="../thirdparty/licenses/jQuery-MIT-LICENSE.txt" />
         </lib>
-        <lib name="qunit-composite" displayName="JUnit reporter for QUnit v1.0.2pre" homepage="https://github.com/jquery/qunit-composite">
-        	<license url="http://jquery.org/license" type="MIT License" file="../thirdparty/licenses/qunit-reporter-junit-MIT-LICENSE.txt" />
+        <lib name="qunit-composite" displayName="Qunit Composite" homepage="https://github.com/jquery/qunit-composite">
+        	<license url="http://jquery.org/license" type="MIT License" file="../thirdparty/licenses/qunit-composite-MIT-LICENSE.txt" />
         </lib>
         <lib name="qunit-reporter-junit" displayName="JUnit Reporter for QUnit" homepage="https://github.com/jquery/qunit-reporter-junit">
         	<license url="http://jquery.org/license" type="MIT License" file="../thirdparty/licenses/qunit-reporter-junit-MIT-LICENSE.txt" />
@@ -311,6 +310,9 @@
         <lib name="unorm" displayName="unorm.js" homepage="https://github.com/walling/unorm">
         	<license url="http://raw.githubusercontent.com/walling/unorm/v1.3.3/LICENSE.md" type="MIT License" file="../thirdparty/licenses/unorm-MIT-LICENSE.txt" />
         </lib>
+        <lib name="tdop" displayName="Top Down Operator Precedence" homepage="https://github.com/douglascrockford/TDOP">
+        	<license url="http://www.apache.org/licenses/LICENSE-2.0" type="Apache License Version 2.0" file="../thirdparty/licenses/TDOP-Apache-LICENSE.txt" />
+        </lib>
     </thirdparty>
     
     <documentation xmlns="http://www.sap.com/ui5/buildext/documentation"
@@ -320,6 +322,16 @@
     <releasenotes xmlns="http://www.sap.com/ui5/buildext/releasenotes"
         url="../../../../test-resources/sap/ui/core/relnotes/changes-{major}.{minor}.json"
         resolve="lib" />
+    
+    <ownership xmlns="http://www.sap.com/ui5/buildext/ownership">
+        <component>CA-UI5-COR</component><!-- default component for library, embedded text as a shortcut for <name>text</name> -->
+        <component>
+            <name>CA-UI5-CTR</name>
+            <modules>
+                <module>sap/ui/core/InvisibleText</module>
+            </modules>
+        </component>
+    </ownership>
     
   </appData>
     

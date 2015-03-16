@@ -185,7 +185,12 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/core/Control', 'sap/ui/core/delegate
 			this._oItemNavigation.destroy();
 			delete this._oItemNavigation;
 		}
-	
+
+		if (this._checkOverflowIntervalId) {
+			jQuery.sap.clearIntervalCall(this._checkOverflowIntervalId);
+			this._checkOverflowIntervalId = null;
+		}
+
 		// no super.exit() to call
 	};
 	
@@ -591,7 +596,7 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/core/Control', 'sap/ui/core/delegate
 	 * @private
 	 */
 	NavigationBar.prototype._checkOverflow = function(oListDomRef, of_back, of_fw) {
-		if (oListDomRef && this.getDomRef()) {
+		if (oListDomRef && this.getDomRef() && jQuery.sap.act.isActive()) {
 			var iScrollLeft = oListDomRef.scrollLeft;
 	
 			// check whether scrolling to the left is possible

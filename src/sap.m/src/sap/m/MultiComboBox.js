@@ -924,7 +924,8 @@ sap.ui.define(['jquery.sap.global', './Bar', './ComboBoxBase', './Dialog', './Li
 			return;
 		}
 	
-		var aSelectedKeys = this.getSelectedKeys();
+		var aSelectedKeys = this.getSelectedKeys() || this._aCustomerKeys;
+		
 		var aKeyOfSelectedItems = this.getKeys(this.getSelectedItems());
 	
 		// the "selectedKey" property is not synchronized
@@ -1024,18 +1025,7 @@ sap.ui.define(['jquery.sap.global', './Bar', './ComboBoxBase', './Dialog', './Li
 		return aSelectedItems;
 	};
 
-	MultiComboBox.prototype.setPlaceholder = function(sPlaceholder) {
-		this._sPlaceholder = sPlaceholder;
 
-		var sTargetPlaceholder = sPlaceholder;
-		if (this._hasTokens()) {
-			sTargetPlaceholder = "";
-		}
-
-		ComboBoxBase.prototype.setPlaceholder.apply(this, [sTargetPlaceholder]);
-		return this;
-	};
-	
 	/**
 	 * @private
 	 */
@@ -1375,13 +1365,6 @@ sap.ui.define(['jquery.sap.global', './Bar', './ComboBoxBase', './Dialog', './Li
 				this.fireChangeEvent('');
 			}
 		}
-
-		var sTargetPlaceholder = this._sPlaceholder;
-		// Remove Placeholder when MCB has tokens.
-		if (this._hasTokens()) {
-			sTargetPlaceholder = "";
-		}
-		ComboBoxBase.prototype.setPlaceholder.apply(this, [sTargetPlaceholder]);
 	};
 	
 	/* =========================================================== */
@@ -1838,19 +1821,14 @@ sap.ui.define(['jquery.sap.global', './Bar', './ComboBoxBase', './Dialog', './Li
 	 * @public
 	 * @ui5-metamodel This method also will be described in the UI5 (legacy) designtime metamodel
 	 */
-	MultiComboBox.prototype.addSelectedKeys = function(aKeys) {
-		if (!aKeys || !aKeys.length || !jQuery.isArray(aKeys)) {
-			return this;
-		}
-		if (!jQuery.isArray(aKeys) || typeof aKeys[0] !== "string") {
-			jQuery.sap.log.warning('Warning: addSelectedKeys() "aKeys" has to be an array of string', this);
-			return this;
-		}
+	MultiComboBox.prototype.addSelectedKeys = function(aKeys) {	
+		aKeys = this.validateProperty("selectedKeys", aKeys);
+		
 		aKeys.forEach(function(sKey) {
 			var oItem = this.getItemByKey(sKey);
 			if (oItem) {
 				this.addSelectedItem(oItem);
-			} else if (sKey) {
+			} else if (sKey != null) {
 				// If at this point of time aggregation 'items' does not exist we
 				// have save provided key.
 				this._aCustomerKeys.push(sKey);
@@ -2159,10 +2137,6 @@ sap.ui.define(['jquery.sap.global', './Bar', './ComboBoxBase', './Dialog', './Li
 		if (this._oTokenizer) {
 			this._oTokenizer.destroy();
 			this._oTokenizer = null;
-		}
-		
-		if (this._sPlaceholder) {
-			this._sPlaceholder = null;
 		}
 	};
 	

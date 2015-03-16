@@ -1188,34 +1188,6 @@ sap.ui.define(['jquery.sap.global', 'jquery.sap.keycodes'],
 		}
 	};
 
-
-	/*
-	 * store reference to original preventDefault method
-	 */
-	var _preventDefault = jQuery.Event.prototype.preventDefault;
-	/*
-	 * and introduce some keyCode fixing for IE...
-	 * this e.g. suppresses the address-field drop down opening in case of sapshow (i.e. F4) in ComboBoxes
-	 */
-	jQuery.Event.prototype.preventDefault = function() {
-		_preventDefault.apply(this, arguments);
-
-		var e = this.originalEvent;
-
-		if ( !e ) {
-			return;
-		}
-
-		if ( e.keyCode != 0 ) {
-			try { // Sometimes setting keycode results in "Access Denied"
-				if (!sap.ui.Device.browser.firefox) {
-					e.keyCode = 0;
-				}
-			} catch (ex) {}
-		}
-
-	};
-
 	/**
 	 * Binds all events for listening with the given callback function.
 	 *
@@ -1700,7 +1672,7 @@ sap.ui.define(['jquery.sap.global', 'jquery.sap.keycodes'],
 	 * @param {object} [oSettings] further options in case the handler is called manually.
 	 * @param {boolean} [oSettings.skip=false] whether the event should be ignored by the central handler (see above)
 	 * @param {Element} [oSettings.target=document.activeElement] the DOMNode which should be used as starting point to find the next DOMNode in the F6 chain.
-	 * @param {[Element]} [oSettings.scope=[document]] the DOMNodes(s) which are used for the F6 chain search
+	 * @param {Element[]} [oSettings.scope=[document]] the DOMNodes(s) which are used for the F6 chain search
 	 * @static
 	 * @private
 	 * @since 1.25.0

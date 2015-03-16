@@ -315,7 +315,7 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 			src: IconPool.getIconURI("arrow-down"),
 			decorative: false,
 			visible : false,
-			size: (this.getCondensed() ? "1.125rem" : "1.375rem"),
+			size: "1.375rem",
 			press : function(oEvent) {
 				that.fireTitleSelectorPress({
 					domRef : this.getDomRef()
@@ -334,15 +334,16 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 	 * @override
 	 * @public
 	 * @param {boolean} bCondensed the new value
-	 * @returns {this} this pointer for chaining
+	 * @returns {sap.m.ObjectHeader} this pointer for chaining
 	 */
 	ObjectHeader.prototype.setCondensed = function (bCondensed) {
 		this.setProperty("condensed", bCondensed);
 		if (this.getCondensed()) {
-			this._oTitleArrowIcon.setSize("1.125rem");
+			this._oTitleArrowIcon.setSize("1rem");
 		} else {
 			this._oTitleArrowIcon.setSize("1.375rem");
 		}
+		
 		return this;
 	};
 
@@ -351,7 +352,7 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 	 * @override
 	 * @public
 	 * @param {string} sNumber the new value
-	 * @returns {this} this pointer for chaining
+	 * @returns {sap.m.ObjectHeader} this pointer for chaining
 	 */
 	ObjectHeader.prototype.setNumber = function (sNumber) {
 		this.setProperty("number", sNumber);
@@ -364,11 +365,11 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 	 * @override
 	 * @public
 	 * @param {string} sUnit the new value
-	 * @returns {this} this pointer for chaining
+	 * @returns {sap.m.ObjectHeader} this pointer for chaining
 	 */
 	ObjectHeader.prototype.setNumberUnit = function (sUnit) {
 		this.setProperty("numberUnit", sUnit);
-		this._getObjectNumber().setNumberUnit(sUnit);
+		this._getObjectNumber().setUnit(sUnit);
 		return this;
 	};
 
@@ -377,7 +378,7 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 	 * @override
 	 * @public
 	 * @param {sap.ui.core.ValueState} sState the new value
-	 * @returns {this} this pointer for chaining
+	 * @returns {sap.m.ObjectHeader} this pointer for chaining
 	 */
 	ObjectHeader.prototype.setNumberState = function (sState) {
 		this.setProperty("numberState", sState,true);
@@ -411,19 +412,23 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 					domRef : jQuery.sap.domById(sSourceId)
 				});
 			}
-		} else if (!this.getResponsive() && this.getTitleActive() && oEvent.srcControl === this._titleText) {
+		} else if (!this.getResponsive() && this.getTitleActive() && ( sSourceId === this.getId() + "-title" ||
+				jQuery(oEvent.target).parent().attr('id') === this.getId() + "-title" || // check if the parent of the "h" tag is the "title"
+				sSourceId === this.getId() + "-titleText-inner" )) {
 			if (!this.getTitleHref()) {
 				oEvent.preventDefault();
+				sSourceId = this.getId() + "-title";
+
 				this.fireTitlePress({
-					domRef : this._titleText.getFocusDomRef()
+					domRef : jQuery.sap.domById(sSourceId)
 				});
 			}
 		} else if (this.getResponsive() && this.getTitleActive() && ( sSourceId === this.getId() + "-txt" || jQuery(oEvent.target).parent().attr('id') === this.getId() + "-txt" )) {
 			if (!this.getTitleHref()) {
 				oEvent.preventDefault();
-				if (!sSourceId) { // if the click is over the span inside the "a" we should get appropriate sourceId (the one of the "a")
-					sSourceId = jQuery(oEvent.target).parent().attr('id');
-				}
+				// The sourceId should be always the id of the "a", even if we click on the inside span element
+				sSourceId = this.getId() + "-txt";
+
 				this.fireTitlePress({
 					domRef : jQuery.sap.domById(sSourceId)
 				});
@@ -442,15 +447,19 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 	 */
 	ObjectHeader.prototype._handleSpaceOrEnter = function(oEvent) {
 		var sSourceId = oEvent.target.id;
-		if (!this.getResponsive() && this.getTitleActive() && sSourceId === this.getId() + "-title") {
+
+		if (!this.getResponsive() && this.getTitleActive() && ( sSourceId === this.getId() + "-title" || 
+				jQuery(oEvent.target).parent().attr('id') === this.getId() + "-title" || // check if the parent of the "h" tag is the "title"
+				sSourceId === this.getId() + "-titleText-inner" )) {
 			if (oEvent.type === "sapspace") {
 				oEvent.preventDefault();
 			}
+			sSourceId = this.getId() + "-title";
 
 			if (!this.getTitleHref()) {
 				oEvent.preventDefault();
 				this.fireTitlePress({
-					domRef : this._titleText.getFocusDomRef()
+					domRef : jQuery.sap.domById(sSourceId)
 				});
 			} else {
 				if (oEvent.type === "sapspace") {
@@ -461,9 +470,9 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 			if (oEvent.type === "sapspace") {
 				oEvent.preventDefault();
 			}
-			if (!sSourceId) { // if the click is over the span inside the "a" we should get appropriate sourceId (the one of the "a")
-				sSourceId = jQuery(oEvent.target).parent().attr('id');
-			}
+			// The sourceId should be always the id of the "a", even if we click on the inside span element
+			sSourceId = jQuery(oEvent.target).parent().attr('id');
+
 			if (!this.getTitleHref()) {
 				oEvent.preventDefault();
 				this.fireTitlePress({
@@ -652,15 +661,9 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 	 */
 	ObjectHeader.prototype._getImageControl = function() {
 		var sImgId = this.getId() + "-img";
-		var sSize = sap.ui.Device.system.phone ? "2.5rem" : "3rem";
-		var sHeight = sSize;
-		var sWidth = sSize;
-
-		if (this.getResponsive()) {
-			sSize = "2.5rem";
-			sHeight = "3rem";
-			sWidth = "3rem";
-		}
+		var sSize = "2.5rem";
+		var sHeight = "3rem";
+		var sWidth = "3rem";
 
 		var mProperties = {
 			src : this.getIcon(),
@@ -696,15 +699,27 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 	};
 
 	ObjectHeader.prototype.onAfterRendering = function() {
+		var oObjectNumber = this.getAggregation("_objectNumber");
+		var bPageRTL = sap.ui.getCore().getConfiguration().getRTL();
+		var $titleArrow = jQuery.sap.byId(this.getId() + "-titleArrow");
+
+		$titleArrow.attr("aria-haspopup", "true");
+		$titleArrow.attr("role", "link");
+		$titleArrow.attr("aria-label", sap.ui.getCore().getLibraryResourceBundle("sap.m").getText("OH_ARIA_SELECT_ARROW_VALUE")); // set label from resource translation bundle
+		
 		if (this.getResponsive()) {
-			this._adjustNumberDiv();
 			this._adjustIntroDiv();
 
-			if (sap.ui.Device.system.desktop && jQuery('html').hasClass("sapUiMedia-Std-Desktop") && this.getFullScreenOptimized() && this._iCountVisAttrStat >= 1 && this._iCountVisAttrStat <= 3) {
-				// Adjust ObjectNumber alignment
-				this.getAggregation("_objectNumber").setTextAlign(sap.ui.core.TextAlign.Begin);
+			if (oObjectNumber && oObjectNumber.getNumber()) {// adjust alignment according the design specification
+				if (sap.ui.Device.system.desktop && jQuery('html').hasClass("sapUiMedia-Std-Desktop") && this.getFullScreenOptimized() && this._iCountVisAttrStat >= 1 && this._iCountVisAttrStat <= 3) {
+					oObjectNumber.setTextAlign(bPageRTL ? sap.ui.core.TextAlign.Right : sap.ui.core.TextAlign.Left);
+				} else {
+					oObjectNumber.setTextAlign(bPageRTL ? sap.ui.core.TextAlign.Left : sap.ui.core.TextAlign.Right);
+				}
 			}
-
+			// adjust number div after initial alignment
+			this._adjustNumberDiv();
+			
 			// watch for orientation change only on tablet and phone
 			if (sap.ui.Device.system.tablet || sap.ui.Device.system.phone) {
 				sap.ui.Device.orientation.attachHandler(this._onOrientationChange, this);
@@ -713,6 +728,10 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 			// When size of the browser window is changed and sap ui media query is changed rerender Responsive OH
 			if (sap.ui.Device.system.desktop) {
 				sap.ui.Device.media.attachHandler(this._rerenderOHR, this, sap.ui.Device.media.RANGESETS.SAP_STANDARD);
+			}
+		} else {
+			if (oObjectNumber && oObjectNumber.getNumber()) { // adjust alignment according the design specification
+				oObjectNumber.setTextAlign(bPageRTL ? sap.ui.core.TextAlign.Left : sap.ui.core.TextAlign.Right);
 			}
 		}
 	};
@@ -734,6 +753,7 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 	ObjectHeader.prototype._adjustNumberDiv = function() {
 		var sId = this.getId();
 		var oObjectNumber = this.getAggregation("_objectNumber");
+		var bPageRTL = sap.ui.getCore().getConfiguration().getRTL();
 
 		if (oObjectNumber && oObjectNumber.getNumber()) {
 			var $numberDiv = jQuery.sap.byId(sId + "-number");
@@ -742,7 +762,7 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 			if (sap.ui.Device.system.phone || (sap.ui.Device.system.desktop && jQuery('html').hasClass("sapUiMedia-Std-Phone"))) {
 				if ($numberDiv.hasClass("sapMObjectNumberBelowTitle")) {
 					// change alignment to fit the design depending
-					oObjectNumber.setTextAlign(sap.ui.core.TextAlign.End);
+					oObjectNumber.setTextAlign(bPageRTL ? sap.ui.core.TextAlign.Left : sap.ui.core.TextAlign.Right);
 					$numberDiv.removeClass("sapMObjectNumberBelowTitle");
 					$titleDiv.removeClass("sapMOHRTitleDivFull");
 				}
@@ -751,7 +771,7 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 
 				if ($numberDiv.outerWidth() > nParentWidth40) {
 					// change alignment to fit the design
-					oObjectNumber.setTextAlign(sap.ui.core.TextAlign.Begin);
+					oObjectNumber.setTextAlign(bPageRTL ? sap.ui.core.TextAlign.Right : sap.ui.core.TextAlign.Left);
 					$numberDiv.addClass("sapMObjectNumberBelowTitle");
 					$titleDiv.addClass("sapMOHRTitleDivFull");
 				}

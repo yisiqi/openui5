@@ -719,6 +719,11 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 		if (this._popup) {
 			this._popup.close();
 		}
+		
+		//remove aria property "aria-haspopup"
+		var $Input = jQuery(this.getFocusDomRef());
+		$Input[0].removeAttribute("aria-haspopup");
+		$Input[0].removeAttribute("aria-describedby");
 	};
 
 	/**
@@ -780,7 +785,8 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 				jQuery("<span>",{
 					"id": sMessageId + "-text",
 					"class": sTextClass,
-					"text": sText
+					"text": sText,
+					"role": "tooltip"
 			}));
 
 			this._popup.setContent($Content[0]);
@@ -805,6 +811,10 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 			} else {
 				this._popup._$().addClass("sapMInputBaseMessageTop");
 			}
+			
+			// add aria property "aria-haspopup"
+			$Input[0].setAttribute("aria-haspopup", "true");
+			$Input[0].setAttribute("aria-describedby", sMessageId + "-text");
 		}
 	};
 
@@ -823,37 +833,47 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 	 */
 	InputBase.prototype.setValueState = function(sValueState) {
 		var sOldValueState = this.getValueState();
-		sValueState = this.validateProperty("valueState", sValueState);
-
+		this.setProperty("valueState", sValueState, true);
+		
+		// get the value back in case of invalid value 
+		sValueState = this.getValueState();
 		if (sValueState === sOldValueState) {
 			return this;
 		}
 
-		if (!this.isActive()) {
-			return this.setProperty("valueState", sValueState);
+		var oDomRef = this.getDomRef();
+		if (!oDomRef) {
+			return this;
 		}
 
-		var $container = this.$();
-		this.setProperty("valueState", sValueState, true);
+		var $This = jQuery(oDomRef),
+			$Input = jQuery(this.getFocusDomRef()),
+			mValueState = sap.ui.core.ValueState;
 
-		if (sOldValueState !== sap.ui.core.ValueState.None) {
-			$container.removeClass("sapMInputBaseState sapMInputBase" + sOldValueState);
-			this._$input.removeClass("sapMInputBaseStateInner sapMInputBase" + sOldValueState + "Inner");
+		if (sValueState === mValueState.Error) {
+			$Input.attr("aria-invalid", "true");
+		} else {
+			$Input.removeAttr("aria-invalid");
 		}
 
-		if (sValueState  !== sap.ui.core.ValueState.None) {
-			$container.addClass("sapMInputBaseState sapMInputBase" + sValueState);
-			this._$input.addClass("sapMInputBaseStateInner sapMInputBase" + sValueState + "Inner");
+		if (sOldValueState !== mValueState.None) {
+			$This.removeClass("sapMInputBaseState sapMInputBase" + sOldValueState);
+			$Input.removeClass("sapMInputBaseStateInner sapMInputBase" + sOldValueState + "Inner");
+		}
+
+		if (sValueState !== mValueState.None) {
+			$This.addClass("sapMInputBaseState sapMInputBase" + sValueState);
+			$Input.addClass("sapMInputBaseStateInner sapMInputBase" + sValueState + "Inner");
 		}
 
 		// set tooltip based on state (will be undefined when state is None)
 		var sTooltip = sap.ui.core.ValueStateSupport.enrichTooltip(this, this.getTooltip_AsString());
-		this.$().attr("title", sTooltip || "");
+		$This.attr("title", sTooltip || "");
 
-		if (this.getFocusDomRef() === document.activeElement) {
+		if ($Input[0] === document.activeElement) {
 			switch (sValueState) {
-				case sap.ui.core.ValueState.Error:
-				case sap.ui.core.ValueState.Warning:
+				case mValueState.Error:
+				case mValueState.Warning:
 					this.openValueStateMessage();
 					break;
 				default:
@@ -927,10 +947,11 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control', 'sap/ui/
 	 */
 	InputBase.prototype.updateMessages = function(sName, aMessages) {
 		if (aMessages && aMessages.length > 0) {
-			this.setValueState(aMessages[0].state);
-			this.setValueStateText(aMessages[0].text);
+			this.setValueState(aMessages[0].type);
+			this.setValueStateText(aMessages[0].message);
 		} else {
 			this.setValueState(sap.ui.core.ValueState.None);
+			this.setValueStateText('');
 		}
 	};
 

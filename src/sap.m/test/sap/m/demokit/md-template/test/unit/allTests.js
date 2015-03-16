@@ -1,5 +1,6 @@
 jQuery.sap.require("test.unit.model.Device");
-jQuery.sap.require("test.unit.model.MockableModel");
-jQuery.sap.require("test.unit.util.formatters");
-jQuery.sap.require("test.unit.util.groupers");
-jQuery.sap.require("test.unit.util.ListSelector");
+jQuery.sap.require("test.unit.model.AppModel");
+jQuery.sap.require("test.unit.model.formatter");
+jQuery.sap.require("test.unit.model.grouper");
+jQuery.sap.require("test.unit.controller.ListSelector");
+jQuery.sap.require("test.unit.controller.BusyHandler");

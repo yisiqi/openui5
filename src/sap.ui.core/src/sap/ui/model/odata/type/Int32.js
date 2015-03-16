@@ -26,11 +26,11 @@ sap.ui.define(['sap/ui/model/odata/type/Int'],
 	 * @constructor
 	 * @alias sap.ui.model.odata.type.Int32
 	 * @param {object} [oFormatOptions]
-	 *   format options as defined in the interface of {@link sap.ui.model.SimpleType}; this
-	 *   type ignores them since it does not support any format options
-	 * @param {object} oConstraints
-	 *   constraints; {@link #validateValue validateValue} throws an error if any constraint is
-	 *   violated
+	 *   format options as defined in {@link sap.ui.core.format.NumberFormat}. In contrast to
+	 *   NumberFormat <code>groupingEnabled</code> defaults to <code>true</code>.
+	 * @param {object} [oConstraints]
+	 *   constraints; {@link sap.ui.model.odata.type.Int#validateValue validateValue} throws an
+	 *   error if any constraint is violated
 	 * @param {boolean|string} [oConstraints.nullable=true]
 	 *   if <code>true</code>, the value <code>null</code> will be accepted
 	 * @public

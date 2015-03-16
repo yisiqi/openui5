@@ -2,15 +2,7 @@
  * ${copyright}
  */
 
-/**
- * client-based DataBinding
- *
- * @namespace
- * @name sap.ui.model.json
- * @public
- */
-
-// Provides the JSON object based model implementation
+// Provides client-based DataBinding implementation
 sap.ui.define(['jquery.sap.global', './ClientContextBinding', './ClientListBinding', './ClientPropertyBinding', './ClientTreeBinding', './Model'],
 	function(jQuery, ClientContextBinding, ClientListBinding, ClientPropertyBinding, ClientTreeBinding, Model) {
 	"use strict";
@@ -131,7 +123,7 @@ sap.ui.define(['jquery.sap.global', './ClientContextBinding', './ClientListBindi
 	 * @public
 	 */
 	ClientModel.prototype.destroy = function() {
-	
+		Model.prototype.destroy.apply(this, arguments);
 		// Abort pending requests
 		if (this.aPendingRequestHandles) {
 			for (var i = this.aPendingRequestHandles.length - 1; i >= 0; i--) {
@@ -143,8 +135,6 @@ sap.ui.define(['jquery.sap.global', './ClientContextBinding', './ClientListBindi
 			}
 			delete this.aPendingRequestHandles;
 		}
-	
-		Model.prototype.destroy.apply(this, arguments);
 	};
 	
 	/**

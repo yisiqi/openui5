@@ -117,6 +117,9 @@
 				function (sName, oBindingInfo) {
 					strictEqual(sName, "any");
 					strictEqual(oBindingInfo.mode, sap.ui.model.BindingMode.OneTime);
+					jQuery.each(oBindingInfo.parts || [], function (i, oInfoPart) {
+						strictEqual(oInfoPart.mode, sap.ui.model.BindingMode.OneTime);
+					});
 					fnBindProperty.apply(this, arguments);
 				});
 			oSandbox.spy(sap.ui.base.ManagedObject.prototype, "unbindProperty");
@@ -643,7 +646,8 @@
 		'</mvc:View>'
 	]], function (i, aViewContent) {
 		test("Expected <template:else>, but instead saw... (" + i + ")", function () {
-			unexpected(aViewContent, "Expected <template:else>, but instead saw {0}");
+			unexpected(aViewContent,
+				"Expected <template:elseif> or <template:else>, but instead saw {0}");
 		});
 	});
 
@@ -671,13 +675,88 @@
 	});
 
 	//*********************************************************************************************
+	test('<template:elseif>: if is true', function () {
+		check([
+			mvcView(),
+			'<template:if test="true">',
+			'<template:then>',
+			'<In id="true"/>',
+			'</template:then>',
+			'<template:elseif test="true">',
+			'<Out/>',
+			'</template:elseif>',
+			'<template:else>',
+			'<Out/>',
+			'</template:else>',
+			'</template:if>',
+			'</mvc:View>'
+		]);
+	});
+
+	//*********************************************************************************************
+	test('<template:elseif>: all false, w/ else', function () {
+		check([
+			mvcView(),
+			'<template:if test="false">',
+			'<template:then>',
+			'<Out/>',
+			'</template:then>',
+			'<template:elseif test="false">',
+			'<Out/>',
+			'</template:elseif>',
+			'<template:else>',
+			'<In id="true"/>',
+			'</template:else>',
+			'</template:if>',
+			'</mvc:View>'
+		]);
+	});
+
+	//*********************************************************************************************
+	test('<template:elseif>: all false, w/o else', function () {
+		check([
+			mvcView(),
+			'<template:if test="false">',
+			'<template:then>',
+			'<Out/>',
+			'</template:then>',
+			'<template:elseif test="false">',
+			'<Out/>',
+			'</template:elseif>',
+			'</template:if>',
+			'<!-- prevent empty tag -->',
+			'</mvc:View>'
+		]);
+	});
+
+	//*********************************************************************************************
+	test('<template:elseif>: elseif is true', function () {
+		check([
+			mvcView(),
+			'<template:if test="false">',
+			'<template:then>',
+			'<Out/>',
+			'</template:then>',
+			'<template:elseif test="false">',
+			'<Out/>',
+			'</template:elseif>',
+			'<template:elseif test="true">',
+			'<In id="true"/>',
+			'</template:elseif>',
+			'<template:else>',
+			'<Out/>',
+			'</template:else>',
+			'</template:if>',
+			'</mvc:View>'
+		]);
+	});
+
+	//*********************************************************************************************
 	test("binding resolution", function () {
 		window.foo = {
 			Helper: {
-				help: function (oRawValue) {
-					return typeof oRawValue === "string"
-						? oRawValue
-						: "{" + oRawValue.value + "}";
+				help: function (vRawValue) {
+					return vRawValue.String || "{" + vRawValue.Path + "}";
 				}
 			}
 		};
@@ -685,22 +764,25 @@
 		check([
 			mvcView().replace(">", ' xmlns:html="http://www.w3.org/1999/xhtml">'),
 			'<Label text="{formatter: \'foo.Helper.help\','
-				+ ' path: \'/@com.sap.vocabularies.UI.v1.HeaderInfo/Title/Label\'}"/>',
+				+ ' path: \'/com.sap.vocabularies.UI.v1.HeaderInfo/Title/Label\'}"/>',
 			'<Text text="{formatter: \'foo.Helper.help\','
-				+ ' path: \'/@com.sap.vocabularies.UI.v1.HeaderInfo/Title/Value\'}"/>',
+				+ ' path: \'/com.sap.vocabularies.UI.v1.HeaderInfo/Title/Value\'}"/>',
 			'<Text text="{unrelated>/some/path}"/>', // unrelated binding MUST NOT be changed!
 			'<html:img src="{formatter: \'foo.Helper.help\','
-				+ ' path: \'/@com.sap.vocabularies.UI.v1.HeaderInfo/TypeImageUrl\'}"/>',
+				+ ' path: \'/com.sap.vocabularies.UI.v1.HeaderInfo/TypeImageUrl\'}"/>',
 			'</mvc:View>'
 		], {
 			models: new sap.ui.model.json.JSONModel({
-				"@com.sap.vocabularies.UI.v1.HeaderInfo": {
-					"TypeImageUrl": "/coco/apps/main/img/Icons/product_48.png",
+				"com.sap.vocabularies.UI.v1.HeaderInfo": {
+					"TypeImageUrl": {
+						"String": "/coco/apps/main/img/Icons/product_48.png"
+					},
 					"Title": {
-						"Label": "Customer",
+						"Label": {
+							"String": "Customer"
+						},
 						"Value": {
-							"@odata.type": "#Path",
-							"value": "CustomerName"
+							"Path": "CustomerName"
 						}
 					}
 				}
@@ -716,42 +798,85 @@
 
 	//*********************************************************************************************
 	test("binding resolution: interface to formatter", function () {
-		var sPath = "/definitions/SomeEntity/@com.sap.vocabularies.UI.v1.HeaderInfo/Title/Value";
-
-		window.foo = {
-			Helper: {
-				help: function (oRawValue) {
-					var oBinding = this.currentBinding();
-
-					ok(oBinding instanceof sap.ui.model.Binding);
-					strictEqual(oBinding.getPath(), sPath);
-
-					return "success";
-				}
-			}
-		};
-
-		check([
-			mvcView(),
-			'<Text text="{formatter: \'foo.Helper.help\', path: \'' + sPath + '\'}"/>',
-			'</mvc:View>'
-		], {
-			models: new sap.ui.model.json.JSONModel({
-				"definitions": {
-					"SomeEntity": {
-						"@com.sap.vocabularies.UI.v1.HeaderInfo": {
-							"Title": {
-								"Value": {
-									"@odata.type": "#Path",
-									"value": "WeightMeasure"
-								}
+		var oModel = new sap.ui.model.json.JSONModel({
+				"somewhere": {
+					"com.sap.vocabularies.UI.v1.HeaderInfo": {
+						"Title": {
+							"Label": {
+								"String": "Customer"
+							},
+							"Value": {
+								"Path": "CustomerName"
 							}
 						}
 					}
 				}
-			})
+			});
+
+		/*
+		 * Dummy formatter function.
+		 *
+		 * @param {object} oInterface
+		 * @param {any} vRawValue
+		 */
+		function help(oInterface, vRawValue) {
+			var oContext,
+				sExpectedPath = vRawValue.String
+					? "/somewhere/com.sap.vocabularies.UI.v1.HeaderInfo/Title/Label"
+					: "/somewhere/com.sap.vocabularies.UI.v1.HeaderInfo/Title/Value";
+
+			strictEqual(oInterface.getModel(), oModel);
+			strictEqual(oInterface.getPath(), sExpectedPath);
+			strictEqual(oInterface.getSetting("bindTexts"), true, "settings");
+			throws(function () {
+				oInterface.getSetting("bindingContexts");
+			}, /Illegal argument: bindingContexts/);
+			throws(function () {
+				oInterface.getSetting("models");
+			}, /Illegal argument: models/);
+
+			return vRawValue.String || "{" + vRawValue.Path + "}";
+		}
+		help.requiresIContext = true;
+
+		/*
+		 * Dummy formatter function to check that only <code>requiresIContext = true</code> counts.
+		 *
+		 * @param {any} vRawValue
+		 */
+		function other(vRawValue) {
+			strictEqual(arguments.length, 1);
+		}
+		other.requiresIContext = "ignored";
+
+		window.foo = {
+			Helper: {
+				help: help,
+				other: other
+			}
+		};
+		this.stub(jQuery.sap.log, "isLoggable").returns(true);
+		this.mock(jQuery.sap.log).expects("debug").never();
+
+		check([
+			mvcView(),
+			'<template:with'
+				+ ' path="/somewhere/com.sap.vocabularies.UI.v1.HeaderInfo">',
+			'<Text text="{formatter: \'foo.Helper.other\', path: \'Title/Label\'}"/>',
+			'<Text text="{formatter: \'foo.Helper.help\', path: \'Title/Label\'}"/>',
+			'<Text text="Value: {formatter: \'foo.Helper.help\', path: \'Title/Value\'}"/>',
+			'<Text text="{formatter: \'foo.Helper.help\', path: \'Title/Label\'}'
+				+ ': {formatter: \'foo.Helper.help\', path: \'Title/Value\'}"/>',
+			'</template:with>',
+			'</mvc:View>'
+		], {
+			models: oModel,
+			bindTexts: true
 		}, [
-			'<Text text="success"/>'
+			'<Text text="undefined"/>',
+			'<Text text="Customer"/>',
+			'<Text text="Value: {CustomerName}"/>',
+			'<Text text="Customer: {CustomerName}"/>'
 		]);
 	});
 

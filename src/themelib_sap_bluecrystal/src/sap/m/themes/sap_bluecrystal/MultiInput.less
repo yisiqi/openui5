@@ -20,15 +20,38 @@
 
 .sapMMultiInputBorder{	
 	border-radius: 0;		
-	background: @sapUiLightestBG;	         
+	background: @sapUiLightestBG;
 	border: 1px solid @sapUiInputBaseBorder;	
 	height: 2.5rem;
-	padding-left: 0.75rem;	
+	padding-left: 0.75rem;
+}
+
+.sapMMultiInputNarrowBorder{
+	padding-left: 0.375rem;
+}
+
+.sap-desktop .sapMMultiInputMultiModeBorder,
+.sap-tablet .sapMMultiInputMultiModeBorder {
+	height: auto;
+	max-height: 10.375rem;
+	overflow-y: auto;
+	z-index: 1;
 }
 
 .sapUiSizeCompact .sapMMultiInputBorder{
 	height: 1.625rem;
-	padding-left: 0.1875rem;
+	padding-left: 0.25rem;
+}
+
+.sapMMultiInputMultiModeBorder .sapMInputBaseInner{
+	border: 1px;
+}
+
+.sap-desktop .sapUiSizeCompact .sapMMultiInputMultiModeBorder,
+.sap-tablet .sapUiSizeCompact .sapMMultiInputMultiModeBorder {
+	height: auto;
+	max-height: 7rem;
+	overflow-y: auto;
 }
 
 .sapMMultiInputNotEditable .sapMMultiInputBorder:hover{
@@ -43,7 +66,7 @@
 .sapMMultiInputShadowDiv{
 	font-size: 			   @sapMFontMediumSize;
 	font-family: 		   @sapUiInputBaseFont;
-	}
+}
 	
 .sapMMultiInput.sapMInputBaseWarning .sapMMultiInputBorder,
 .sapMMultiInput.sapMInputBaseError .sapMMultiInputBorder,
@@ -69,6 +92,10 @@
 	background: transparent;
 }
 
+.sapMMultiInput > .sapMInputBasePlaceholder {
+	width: calc(100% - 2.375rem);
+}
+
 .sapUiSizeCompact .sapMMultiInputInputContainer > input, .sapUiSizeCompact .sapMMultiInputShadowDiv{	
 	min-width: 1.9rem;
 	
@@ -85,4 +112,8 @@
 .sapUiSizeCompact  .sapMMultiInput .sapMInputBaseInner {
 	padding-left: 0.0rem;
 	padding-right: 0.1rem;
+}
+
+.sapUiSizeCompact .sapMMultiInput > .sapMInputBasePlaceholder {
+	width: calc(100% - 1.5rem);
 }

@@ -12,6 +12,10 @@
 	function anyInt(sName, iMin, iMax) {
 		var oType;
 
+		function createType(oFormatOptions, oConstraints) {
+			return new (jQuery.sap.getObject(sName))(oFormatOptions, oConstraints);
+		}
+
 		function testRange(iValue, sExpectedMessage) {
 			sap.ui.test.TestUtils.withNormalizedMessages(function () {
 				try {
@@ -29,7 +33,7 @@
 		module(sName, {
 			setup: function () {
 				sap.ui.getCore().getConfiguration().setLanguage("en-US");
-				oType = new (jQuery.sap.getObject(sName))();
+				oType = createType();
 			},
 			teardown: function () {
 				sap.ui.getCore().getConfiguration().setLanguage(sDefaultLanguage);
@@ -106,17 +110,18 @@
 		});
 
 		jQuery.each(["foo", "123.809"], function (i, oValue) {
-			test("parse invalid value from string: " + oValue,
-				function () {
+			test("parse invalid value from string: " + oValue, function () {
+				sap.ui.test.TestUtils.withNormalizedMessages(function () {
 					try {
 						oType.parseValue(oValue, "string");
 						ok(false, "Expected ParseException not thrown");
 					}
 					catch (e) {
-						ok(e instanceof sap.ui.model.ParseException)
-						equal(e.message, "Enter a number with no decimals");
+						ok(e instanceof sap.ui.model.ParseException);
+						strictEqual(e.message, "EnterInt");
 					}
 				});
+			});
 		});
 
 		jQuery.each(["123", undefined, false], function (i, iValue) {
@@ -157,7 +162,7 @@
 			}
 			catch (e) {
 				ok(e instanceof sap.ui.model.ValidateException)
-				equal(e.message, "Enter a number with no decimals");
+				equal(e.message, "Enter a number with no decimal places.");
 			}
 		});
 
@@ -199,7 +204,7 @@
 			strictEqual(oType.oConstraints, undefined);
 
 			sap.ui.test.TestUtils.withNormalizedMessages(function () {
-				oType = new (jQuery.sap.getObject(sName))({}, {nullable: false});
+				oType = createType({}, {nullable: false});
 				try {
 					oType.validateValue(null);
 					ok(false);
@@ -207,6 +212,25 @@
 					ok(e instanceof sap.ui.model.ValidateException)
 					equal(e.message, "EnterInt");
 				}
+			});
+		});
+
+		jQuery.each([{
+			set: {foo: "bar"},
+			expect: {foo: "bar", groupingEnabled: true}
+		}, {
+			set: {decimals: 7, groupingEnabled: false},
+			expect: {decimals: 7, groupingEnabled: false}
+		}], function (i, oFixture) {
+			test("formatOptions: " + JSON.stringify(oFixture.set), function () {
+				var oSpy,
+					oType = createType(oFixture.set);
+
+				deepEqual(oType.oFormatOptions, oFixture.set);
+
+				oSpy = this.spy(sap.ui.core.format.NumberFormat, "getIntegerInstance");
+				oType.formatValue(42, "string");
+				sinon.assert.calledWithExactly(oSpy, oFixture.expect);
 			});
 		});
 	}
@@ -217,4 +241,5 @@
 
 	anyInt("sap.ui.model.odata.type.SByte", -128, 127);
 
+	anyInt("sap.ui.model.odata.type.Byte", 0, 255);
 } ());

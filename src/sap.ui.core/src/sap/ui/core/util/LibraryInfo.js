@@ -44,16 +44,18 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/Object', 'jquery.sap.script'],
 			return;
 		}
 		
-		var sUrl = jQuery.sap.getModulePath(sLibraryName, '/'),
-			that = this;
-			
-		var sLibraryType = ".library"; 
-		
-		var aParts = /themelib_(.*)/i.exec(sLibraryName);
-		if (aParts != null) {
+		var that = this, 
+		    sUrl, 
+		    sLibraryType,
+		    aParts = /themelib_(.*)/i.exec(sLibraryName);
+		if (!aParts) {
+			// UI library
+			sLibraryType = ".library";
+			sUrl = jQuery.sap.getModulePath(sLibraryName, '/');
+		} else {
+			// theme library
 			sLibraryType = ".theme";
-			var sThemeName = aParts[1];
-			sUrl = "sap/ui/core/themes/" + sThemeName + "/";	
+			sUrl = jQuery.sap.getModulePath("sap.ui.core", '/themes/' + aParts[1] + "/");	
 		}
 		
 		jQuery.ajax({
@@ -83,6 +85,7 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/Object', 'jquery.sap.script'],
 				result.version = $data.find("version").text();
 				result.documentation = $data.find("documentation").text();
 				result.releasenotes = $data.find("releasenotes").attr("url"); // in the appdata section
+				result.componentInfo = LibraryInfo.prototype._getLibraryComponentInfo($data);
 			}
 			
 			fnCallback(result);
@@ -159,8 +162,6 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/Object', 'jquery.sap.script'],
 	
 	LibraryInfo.prototype._getReleaseNotes = function(sLibraryName, sVersion, fnCallback) {
 		this._loadLibraryMetadata(sLibraryName, function(oData){
-			/* var lib = oData.name,
-				libUrl = oData.url;*/
 	
 			if (!oData.data) {
 				fnCallback({});
@@ -181,38 +182,146 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/Object', 'jquery.sap.script'],
 				fnCallback({});
 				return;
 			}
-				
-			sUrl = sUrl.replace("{major}", iMajor);
-			sUrl = sUrl.replace("{minor}", iMinor);
 			
-			if (sUrl.search("{patch}") != -1) {
-				sUrl = sUrl.replace("{patch}", iPatch);
-			}
-		
-			if (oVersion.getSuffix() === "-SNAPSHOT"){
+			// for SNAPSHOT versions we fallback to the next minor version, e.g.:
+			// 1.27.1-SNAPSHOT => 1.28.0
+			if (oVersion.getSuffix() === "-SNAPSHOT") {
+				if (iMinor % 2 != 0) {
+					iMinor = (iMinor + 1);
+					iPatch = 0;
+				}
 				sVersion = iMajor + "." + iMinor + "." + iPatch;
 			}
 			
-
+			// replace the placeholders for major, minor and patch
+			sUrl = sUrl.replace("{major}", iMajor);
+			sUrl = sUrl.replace("{minor}", iMinor);
+			sUrl = sUrl.replace("{patch}", iPatch);
+			
+			// if the URL should be resolved against the library the URL
+			// is relative to the library root path
 			if ($Doc.attr("resolve") == "lib") {
 				sUrl = oData.url + sUrl;
 			}
 			
+			// load the changelog/releasenotes
 			jQuery.ajax({
 				url : sUrl,
 				dataType : "json",
 				error : function(xhr, status, e) {
-					jQuery.sap.log.warning("failed to load release notes for library '" + sLibraryName + ", " + e);
+					if (status === "parsererror") {
+						jQuery.sap.log.error("failed to parse release notes for library '" + sLibraryName + ", " + e);
+					} else {
+						jQuery.sap.log.warning("failed to load release notes for library '" + sLibraryName + ", " + e);
+					}
 					fnCallback({});
 				},
 				success : function(oData, sStatus, oXHR) {
-					fnCallback(oData[sVersion]);
+					// in case of a version is specified we return only the content
+					// of the specific version instead of the full data of the release notes file.
+					fnCallback(oData, sVersion);
 				}
 			});
+			
 		});
 	};
-	
-	
+
+	/**
+	*Collect components from .library file
+	*@param {object} oData xml formatted object of .library file
+	*@return {array.<Object>} library component info or empty string
+	*/
+
+	LibraryInfo.prototype._getLibraryComponentInfo = function(oData) {
+		var oAllLibComponents = {};
+		var aComponentModules = [];
+		var sDefaultComponent = "";
+
+		oData.find("ownership > component").each(function(index, oCurrentComponent) {
+			if (oCurrentComponent.childElementCount === 0) {
+				sDefaultComponent = oCurrentComponent.textContent;
+			} else {
+				var vCurrentComponentName = oCurrentComponent.getElementsByTagName("name");
+				if (vCurrentComponentName && vCurrentComponentName.length > 0) {
+					vCurrentComponentName = vCurrentComponentName[0].textContent;
+					var vCurrentModules = oCurrentComponent.getElementsByTagName("module");
+					if (vCurrentComponentName && vCurrentModules && vCurrentModules.length > 0) {
+						var sConcatenatedModules = "";
+						for (var i = 0; i < vCurrentModules.length; i++) {
+							var sModule = vCurrentModules[i].textContent.replace(/\//g, ".");
+							if (sModule) {
+								sConcatenatedModules = sConcatenatedModules + "," + sModule;
+							}
+						}
+
+						if (sConcatenatedModules) {
+							sConcatenatedModules = sConcatenatedModules.replace(/^,/, ''); // remove first comma
+							var oTemp = { "component" : vCurrentComponentName, "modules" : sConcatenatedModules };
+							aComponentModules.push(oTemp);
+						}
+					}
+				}
+			}
+		});
+
+		oAllLibComponents["defaultComponent"] = sDefaultComponent;
+		if (aComponentModules && aComponentModules.length > 0) {
+			oAllLibComponents["specialCases"] = aComponentModules;
+		}
+
+		return oAllLibComponents;
+	};
+
+	/**
+	*Return the control's component for Ownership app (TeamApp) & Explored app (Demokit)
+	*@param {array.<Object>} oComponentInfos object for each library with the default component and special cases
+	*@param {string} sModuleName control name, e.g. sap.m.Button
+	*@return {string} component
+	*/
+
+	LibraryInfo.prototype._getActualComponent = function(oComponentInfos, sModuleName) {
+		if (sModuleName) {
+			for (var key in oComponentInfos) {
+				if (key && sModuleName.indexOf(key) === 0) {
+					//check for special modules
+					var bSpecialModule = false;
+					var oSpecCases = oComponentInfos[key].specialCases;
+					var sSpecComponent = "";
+					var aSpecModules = [];
+
+					if (oSpecCases) {
+						for (var i = 0; i < oSpecCases.length; i++) {
+							aSpecModules = oSpecCases[i].modules.split(",");
+
+							for (var j = 0; j < aSpecModules.length; j++) {
+								if (sModuleName === aSpecModules[j]) {
+									sSpecComponent = oSpecCases[i].component;
+									bSpecialModule = true;
+									break;
+								}
+							}
+						}
+					}
+
+					if (bSpecialModule) {
+						return sSpecComponent;
+					} else {
+						return oComponentInfos[key].defaultComponent;
+					}
+				}
+			}
+		}
+	};
+
+	/**
+	*Return the default library's component for Version Info (Demokit)
+	*@param {array.<Object>} oLibraryInfo array with all library information, e.g componentInfo, releasenotes and etc
+	*@return {string} component
+	*/
+
+	LibraryInfo.prototype._getDefaultComponent = function(oLibraryInfo) {
+		return oLibraryInfo && oLibraryInfo.componentInfo && oLibraryInfo.componentInfo.defaultComponent;
+	};
 
 	return LibraryInfo;
 

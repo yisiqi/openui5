@@ -47,6 +47,8 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/ManagedObject', './ComponentMet
 			stereotype : "component",
 			"abstract": true,
 			version : "0.0",
+			/*enable/disable type validation by MessageManager
+			handleValidation: 'boolean'*/
 			includes : [],    // css, javascript files that should be used in the component
 			dependencies : {  // external dependencies
 				libs : [],
@@ -95,6 +97,25 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/ManagedObject', './ComponentMet
 		}
 	
 	}, /* Metadata constructor */ ComponentMetadata);
+	
+	/**
+	 * Returns the metadata for the Component class.
+	 * 
+	 * @return {sap.ui.core.ComponentMetadata} Metadata for the Component class.
+	 * @static
+	 * @public
+	 * @name sap.ui.core.ComponentMetadata.getMetadata
+	 * @function
+	 */
+	
+	/**
+	 * Returns the metadata for the class that this component belongs to.
+	 * 
+	 * @return {sap.ui.core.ComponentMetadata} Metadata for the class of the component
+	 * @public
+	 * @name sap.ui.core.ComponentMetadata#getMetadata
+	 * @function
+	 */
 	
 	
 	/**
@@ -249,7 +270,8 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/ManagedObject', './ComponentMet
 			}, this);
 			jQuery(window).bind("error", this._fnWindowErrorHandler);
 		}
-	
+		
+		
 		// before unload handler (if exists)
 		if (this.onWindowBeforeUnload) {
 			this._fnWindowBeforeUnloadHandler = jQuery.proxy(this.onWindowBeforeUnload, this);
@@ -300,6 +322,9 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/ManagedObject', './ComponentMet
 		// destroy the object
 		ManagedObject.prototype.destroy.apply(this, arguments);
 		
+		//unregister for messging
+		sap.ui.getCore().getMessageManager().unregisterObject(this);
+		
 		// unregister the component instance
 		this.getMetadata().onExitComponent();
 		
@@ -331,8 +356,7 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/ManagedObject', './ComponentMet
 		}
 		return this._oEventBus;
 	};
-	
-	
+
 	/**
 	 * Initializes the component models and services.
 	 * 
@@ -341,6 +365,15 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/ManagedObject', './ComponentMet
 	Component.prototype.initComponentModels = function(mModels, mServices) {
 		
 		var oMetadata = this.getMetadata();
+		
+		// currently the automatic creation of the models is not activated
+		// for the metadata version 2 - here the implementation needs to be
+		// adopted to take the model configuration out of the models section
+		// of sap.ui5 and the datasources mapping from sap.app
+		if (oMetadata.getMetadataVersion() === 2) {
+			jQuery.sap.log.debug("Skipping component model creation for manifest.json models.");
+			return;
+		} 
 		
 		// get the application configuration
 		var oModelsConfig = mModels || oMetadata.getModels(),
@@ -595,8 +628,21 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/ManagedObject', './ComponentMet
 			jQuery.sap.assert(oInstance instanceof Component, "The specified component \"" + sController + "\" must be an instance of sap.ui.core.Component!");
 			jQuery.sap.log.info("Component instance Id = " + oInstance.getId());
 			
-			return oInstance;
+			/*register for messging: register if either handleValidation is set in metadata or if not set in metadata and
+			 * set on instance
+			 */
+			var bHandleValidation = oInstance.getMetadata().handleValidation() !== undefined || vConfig.handleValidation;
+			if (bHandleValidation) {
+				//calc handleValidation for registration
+				if (oInstance.getMetadata().handleValidation() !== undefined) {
+					bHandleValidation = oInstance.getMetadata().handleValidation();
+				} else {
+					bHandleValidation = vConfig.handleValidation;
+				}
+				sap.ui.getCore().getMessageManager().registerObject(oInstance, bHandleValidation);
+			}
 			
+			return oInstance;
 		}
 			
 		// load the component class 

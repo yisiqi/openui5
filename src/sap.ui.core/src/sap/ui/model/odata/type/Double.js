@@ -8,18 +8,6 @@ sap.ui.define(['sap/ui/core/format/NumberFormat', 'sap/ui/model/FormatException'
 	function(NumberFormat, FormatException, ODataType, ParseException, ValidateException) {
 	"use strict";
 
-	var rDouble = /^[-+]?\d(\.\d+)?E[-+]?\d+$/i;
-
-	/**
-	 * Returns the matching error message for the type based on the constraints.
-	 *
-	 * @returns {string}
-	 *   the message
-	 */
-	function getErrorMessage() {
-		return sap.ui.getCore().getLibraryResourceBundle().getText("EnterNumber");
-	}
-
 	/**
 	 * Returns the formatter. Creates it lazily.
 	 * @param {sap.ui.model.odata.type.Double} oType
@@ -28,43 +16,13 @@ sap.ui.define(['sap/ui/core/format/NumberFormat', 'sap/ui/model/FormatException'
 	 *   the formatter
 	 */
 	function getFormatter(oType) {
+		var oFormatOptions;
+
 		if (!oType.oFormat) {
-			oType.oFormat = NumberFormat.getFloatInstance({groupingEnabled: true});
+			oFormatOptions = jQuery.extend({groupingEnabled: true}, oType.oFormatOptions);
+			oType.oFormat = NumberFormat.getFloatInstance(oFormatOptions);
 		}
 		return oType.oFormat;
-	}
-
-	/**
-	 * Returns the type's nullable constraint.
-	 *
-	 * @param {sap.ui.model.odata.type.Double} oType
-	 *   the type
-	 * @returns {boolean}
-	 *   the nullable constraint or <code>true</code> if not defined
-	 */
-	function isNullable(oType) {
-		return !oType.oConstraints || oType.oConstraints.nullable !== false;
-	}
-
-	/**
-	 * Sets the constraints.
-	 *
-	 * @param {sap.ui.model.odata.type.Double} oType
-	 *   the type instance
-	 * @param {object} [oConstraints]
-	 *   constraints, see {@link #constructor}
-	 */
-	function setConstraints(oType, oConstraints) {
-		var vNullable = oConstraints && oConstraints.nullable;
-
-		oType.oConstraints = undefined;
-		if (vNullable === false || vNullable === "false") {
-			oType.oConstraints = {nullable: false};
-		} else if (vNullable !== undefined && vNullable !== true && vNullable !== "true") {
-			jQuery.sap.log.warning("Illegal nullable: " + vNullable, null, oType.getName());
-		}
-
-		oType._handleLocalizationChange();
 	}
 
 	/**
@@ -72,10 +30,8 @@ sap.ui.define(['sap/ui/core/format/NumberFormat', 'sap/ui/model/FormatException'
 	 *
 	 * @class This class represents the OData primitive type <a
 	 * href="http://www.odata.org/documentation/odata-version-2-0/overview#AbstractTypeSystem">
-	 * <code>Edm.Double</code></a>.
-	 *
-	 * In {@link sap.ui.model.odata.v2.ODataModel ODataModel} this type is represented as a
-	 * <code>string</code>.
+	 * <code>Edm.Double</code></a>. <b>This data type is read-only</b>. The functions
+	 * {@link #parseValue parseValue} and {@link #validateValue validateValue} throw exceptions.
 	 *
 	 * @extends sap.ui.model.odata.type.ODataType
 	 *
@@ -84,22 +40,18 @@ sap.ui.define(['sap/ui/core/format/NumberFormat', 'sap/ui/model/FormatException'
 	 *
 	 * @alias sap.ui.model.odata.type.Double
 	 * @param {object} [oFormatOptions]
-	 *   format options as defined in the interface of {@link sap.ui.model.SimpleType}; this
-	 *   type ignores them since it does not support any format options
-	 * @param {object} [oConstraints]
-	 *   constraints; {@link #validateValue validateValue} throws an error if any constraint is
-	 *   violated
-	 * @param {boolean|string} [oConstraints.nullable=true]
-	 *   if <code>true</code>, the value <code>null</code> will be accepted
+	 *   format options as defined in {@link sap.ui.core.format.NumberFormat}. In contrast to
+	 *   NumberFormat <code>groupingEnabled</code> defaults to <code>true</code>.
 	 * @public
 	 * @since 1.27.0
 	 */
 	var Double = ODataType.extend("sap.ui.model.odata.type.Double",
 			/** @lends sap.ui.model.odata.type.Double.prototype */
 			{
-				constructor : function (oFormatOptions, oConstraints) {
+				constructor : function (oFormatOptions) {
 					ODataType.apply(this, arguments);
-					setConstraints(this, oConstraints);
+					this.oFormatOptions = oFormatOptions;
+					this._handleLocalizationChange();
 				}
 			}
 		);
@@ -152,45 +104,14 @@ sap.ui.define(['sap/ui/core/format/NumberFormat', 'sap/ui/model/FormatException'
 	};
 
 	/**
-	 * Parses the given value, which is expected to be of the given type, to an Edm.Double in
-	 * <code>string</code> representation.
+	 * Throws a <code>ParseException</code> because this type is read only.
 	 *
-	 * @param {string|number} vValue
-	 *   the value to be parsed; the empty string and <code>null</code> will be parsed to
-	 *   <code>null</code>
-	 * @param {string}
-	 *   sSourceType the source type (the expected type of <code>vValue</code>); may be "float",
-	 *   "int" or "string".
-	 *   See {@link sap.ui.model.odata.type} for more information.
-	 * @returns {string}
-	 *   the parsed value
 	 * @throws {sap.ui.model.ParseException}
-	 *   if <code>sSourceType</code> is unsupported or if the given string cannot be parsed to a
-	 *   Double
 	 * @public
 	 */
-	Double.prototype.parseValue = function(vValue, sSourceType) {
-		var fResult;
-
-		if (vValue === null || vValue === "") {
-			return null;
-		}
-		switch (sSourceType) {
-		case "string":
-			fResult = getFormatter(this).parse(vValue);
-			if (isNaN(fResult)) {
-				throw new ParseException(getErrorMessage());
-			}
-			break;
-		case "int":
-		case "float":
-			fResult = vValue;
-			break;
-		default:
-			throw new ParseException("Don't know how to parse " + this.getName() + " from "
-				+ sSourceType);
-		}
-		return fResult.toExponential();
+	Double.prototype.parseValue = function() {
+		throw new ParseException("Unsupported operation: data type " + this.getName()
+			+ " is read-only.");
 	};
 
 	/**
@@ -202,23 +123,14 @@ sap.ui.define(['sap/ui/core/format/NumberFormat', 'sap/ui/model/FormatException'
 	};
 
 	/**
-	 * Validates whether the given value in model representation is valid and meets the
-	 * defined constraints.
+	 * Throws a <code>ValidateException</code> because this type is read only.
 	 *
-	 * @param {string} sValue
-	 *   the value to be validated
-	 * @returns {void}
-	 * @throws {sap.ui.model.ValidateException} if the value is not valid
+	 * @throws {sap.ui.model.ValidateException}
 	 * @public
 	 */
-	Double.prototype.validateValue = function (sValue) {
-		if (sValue === null && isNullable(this)) {
-			return;
-		}
-		if (typeof sValue === "string" && rDouble.exec(sValue)) {
-			return;
-		}
-		throw new ValidateException(getErrorMessage());
+	Double.prototype.validateValue = function () {
+		throw new ValidateException("Unsupported operation: data type " + this.getName()
+			+ " is read-only.");
 	};
 
 	/**

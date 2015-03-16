@@ -6,7 +6,7 @@
 		<l:content>
 			<Text text="{/message}">
 			</Text>
-			<CheckBox id="checkBoxId" text="{/checkBoxText}" checked="false">
+			<CheckBox id="checkBoxId" text="{/checkBoxText}" selected="false">
 			</CheckBox>
 		</l:content>
 	</l:VerticalLayout>

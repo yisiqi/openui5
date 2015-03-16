@@ -14,7 +14,7 @@
 		}">
 		<headerToolbar>
 			<Toolbar>
-				<Label text="Products"></Label>
+				<Title text="Products" level="H2"/>
 				<ToolbarSpacer></ToolbarSpacer>
 				<Button	icon="sap-icon://download" press="onDataExport" />
 			</Toolbar>
@@ -56,8 +56,7 @@
 				<cells>
 					<ObjectIdentifier
 						title="{Name}"
-						text="{ProductId}"
-						class="sapMTableContentMargin"  />
+						text="{ProductId}" />
 					<Text
 						text="{SupplierName}" />
 					<Text

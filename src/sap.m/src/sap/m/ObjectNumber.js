@@ -104,12 +104,15 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control'],
 	 * @override
 	 * @public
 	 * @param {sap.ui.core.TextAlign} sAlign the new value
+	 * @param suppressTextDirection if true the text direction doesn't influence to the text alignment
 	 */
 	ObjectNumber.prototype.setTextAlign = function(sAlign) {
-		//do suppress rerendering
+		var sAlignVal;
+
+		//do suppress re-rendering
 		this.setProperty("textAlign", sAlign, true);
-		
-		var sAlignVal = this.getRenderer()._getTextAlignment(sAlign, this.getTextDirection());
+
+		sAlignVal = this.getRenderer()._getTextAlignment(sAlign, this.getTextDirection());
 		if (sAlignVal) {
 			//change the inline style
 			this.$().css("text-align", sAlignVal);

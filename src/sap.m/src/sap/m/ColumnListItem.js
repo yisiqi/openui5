@@ -16,8 +16,12 @@ sap.ui.define(['jquery.sap.global', './ListItemBase', './library'],
 	 * @param {object} [mSettings] initial settings for the new control
 	 *
 	 * @class
-	 * ColumnListItem can be used to create rows for Table control.
-	 * Note: This control should not be used without Column definition in parent control.
+	 * ColumnListItem can be used with cells aggregation to create rows for the Table control.
+	 * The columns aggregation of the Table should match with the cells aggregation.
+	 * 
+	 * NOTE: This control should only be used within the sap.m.Table control.
+	 * Please also note that the counter property of the ListItemBase is not supported by ColumnListItem. 
+	 * 
 	 * @extends sap.m.ListItemBase
 	 *
 	 * @author SAP SE
@@ -46,6 +50,7 @@ sap.ui.define(['jquery.sap.global', './ListItemBase', './library'],
 	
 			/**
 			 * Every item inside the cells aggregation defines one column of the row.
+			 * The order of the cells aggregation must match the order of the columns aggregation of the Table.
 			 */
 			cells : {type : "sap.ui.core.Control", multiple : true, singularName : "cell", bindable : "bindable"}
 		}
@@ -58,7 +63,37 @@ sap.ui.define(['jquery.sap.global', './ListItemBase', './library'],
 	// initialization hook
 	ColumnListItem.prototype.init = function() {
 		sap.m.ListItemBase.prototype.init.call(this);
+		this._bNeedsTypeColumn = false;
 		this._aClonedHeaders = [];
+	};
+	
+	ColumnListItem.prototype.onAfterRendering = function() {
+		sap.m.ListItemBase.prototype.onAfterRendering.call(this);
+		this._checkTypeColumn();
+	};
+	
+	// informs the table when item's type column requirement is changed
+	ColumnListItem.prototype._checkTypeColumn = function(bNeedsTypeColumn) {
+		if (bNeedsTypeColumn == undefined) {
+			bNeedsTypeColumn = this.needsTypeColumn();
+		}
+	
+		if (this._bNeedsTypeColumn != bNeedsTypeColumn) {
+			this._bNeedsTypeColumn = bNeedsTypeColumn;
+			this.informList("TypeColumnChange", bNeedsTypeColumn);
+		}
+	};
+	
+	// determines whether type column for this item is necessary or not
+	ColumnListItem.prototype.needsTypeColumn = function() {
+		var sType = this.getType(),
+			mType = sap.m.ListType;
+			
+		return	this.getVisible() && (
+					sType == mType.Detail ||
+					sType == mType.Navigation ||
+					sType == mType.DetailAndActive
+				);
 	};
 	
 	// returns responsible table control for the item
@@ -114,17 +149,25 @@ sap.ui.define(['jquery.sap.global', './ListItemBase', './library'],
 	 * Remove pop-in from DOM when setVisible false is called
 	 * @overwite
 	 */
-	ColumnListItem.prototype.setVisible = function() {
-		ListItemBase.prototype.setVisible.apply(this, arguments);
-		if (!this.getVisible()) {
+	ColumnListItem.prototype.setVisible = function(bVisible) {
+		ListItemBase.prototype.setVisible.call(this, bVisible);
+		if (!bVisible) {
 			this.removePopin();
 		}
+		
 		return this;
+	};
+	
+	// update the aria-selected for the cells
+	ColumnListItem.prototype.updateSelectedDOM = function(bSelected, $LI) {
+		ListItemBase.prototype.updateSelectedDOM.apply(this, arguments);
+		$LI.children().attr("aria-selected", bSelected);
 	};
 	
 	// remove pop-in on destroy
 	ColumnListItem.prototype.exit = function() {
 		ListItemBase.prototype.exit.call(this);
+		this._checkTypeColumn(false);
 		this.destroyClonedHeaders();
 		this.removePopin();
 	};

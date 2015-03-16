@@ -17,18 +17,6 @@
 		},
 		"links": [
 			{
-				"text": "Icon Explorer",
-				"ref": "test-resources/sap/m/demokit/icon-explorer/index.html",
-				"icon": "sapmdemo/icon-explorer",
-				"desc": "Helps you find icons out of a built-in set of almost 500"
-			},
-			{
-				"text": "Approve Purchase Orders",
-				"ref": "test-resources/sap/m/demokit/poa/index.html",
-				"icon": "sapmdemo/poa",
-				"desc": "A real world example of an approval process app"
-			},
-			{
 				"text": "Shopping Cart",
 				"ref": "test-resources/sap/m/demokit/cart/index.html?responderOn=true",
 				"icon": "sapmdemo/cart",
@@ -41,23 +29,22 @@
 				"desc": "This is where it all starts when developing with sap.m"
 			},
 			{
-				"text": "Split App Demo",
-				"ref": "test-resources/sap/m/demokit/splitapp/index.html",
-				"icon": "sapmdemo/splitapp",
-				"desc": "The SplitApp control adapts between phone and tablet devices"
-			},
-			{
 				"text" : "Application Best Practices",
 				"ref": "test-resources/sap/m/demokit/tdg/index.html?responderOn=true",
 				"icon": "sapmdemo/tdg",
 				"desc": "The reference app \"Application Best Practices\" of the developer guide"
+			},
+			{
+				"text": "Master Detail",
+				"ref": "test-resources/sap/m/demokit/md-template/demokit.html",
+				"icon": "sapmdemo/splitapp",
+				"desc": "A best practice implementation of the Master-Detail design pattern"
 			}
 		]
 	},
 
 	"explored" : {
 		"entitiesDefaults" : {
-			"appComponent" : "CA-UI5-CTR",
 			"formFactors" : "ML"
 		},
 		"samplesRef" : {
@@ -77,7 +64,7 @@
 				"name" : "Action Sheet",
 				"category" : "Action",
 				"since" : "1.10",
-				"samples" : [ "sap.m.sample.ActionSheet", "sap.m.sample.ToolbarResponsiveCss" ]
+				"samples" : [ "sap.m.sample.ActionSheet" ]
 			},
 			{
 				"id" : "sap.m.ActionListItem",
@@ -176,7 +163,6 @@
 			{
 				"id" : "sap.m.DateRangeSelection",
 				"name" : "Date Range Selection",
-				"appComponent" : "CA-UI5-BS-FCB",
 				"category" : "User Input",
 				"since" : "1.22",
 				"formFactors" : "L",
@@ -195,7 +181,7 @@
 				"name" : "Dialog",
 				"category" : "Popup",
 				"since" : "1.10",
-				"samples" : [ "sap.m.sample.Dialog", "sap.m.sample.DialogSearch" ]
+				"samples" : [ "sap.m.sample.Dialog", "sap.m.sample.DialogMessage", "sap.m.sample.DialogConfirm" ]
 			},
 			{
 				"id" : "sap.m.DisplayListItem",
@@ -211,7 +197,6 @@
 				"category" : "User Input",
 				"since" : "1.12",
 				"formFactors" : "L",
-				"appComponent" : "CA-UI5-BS-FCP",
 				"samples" : [ "sap.m.sample.FacetFilterLight", "sap.m.sample.FacetFilterSimple" ]
 			},
 			{
@@ -219,7 +204,6 @@
 				"name" : "Feed Input",
 				"category" : "Display",
 				"since" : "1.22",
-				"appComponent" : "CA-UI5-BS-FCW",
 				"samples" : [ "sap.m.sample.FeedInput", "sap.m.sample.Feed" ]
 			},
 			{
@@ -227,7 +211,6 @@
 				"name" : "Feed List Item",
 				"category" : "List",
 				"since" : "1.12",
-				"appComponent" : "CA-UI5-BS-FCW",
 				"samples" : [ "sap.m.sample.FeedListItem", "sap.m.sample.Feed" ]
 			},
 			{
@@ -251,7 +234,6 @@
 				"name" : "Upload Collection",
 				"category" : "Action",
 				"since" : "1.26",
-				"appComponent" : "CA-UI5-BS-FCW",
 				"samples" : [ "sap.m.sample.UploadCollection" ]
 			},
 			{
@@ -336,7 +318,6 @@
 					"sap.m.sample.ListGrowing",
 					"sap.m.sample.ListItemTypes",
 					"sap.m.sample.ListLoading",
-					"sap.m.sample.P13nDialogController",
 					"sap.m.sample.ListNavType",
 					"sap.m.sample.ListNoData",
 					"sap.m.sample.ListSelection",
@@ -347,11 +328,19 @@
 				]
 			},
 			{
-				"id" : "sap.m.MessageBox",
+				"id" : "sap.m.MessageBox ",
 				"name" : "Message Box",
 				"category" : "Popup",
 				"since" : "1.10",
-				"samples" : [ "sap.m.sample.MessageBox", "sap.m.sample.MessageBoxTypes", "sap.m.sample.MessageBoxCustom" ]
+				"samples" : [ "sap.m.sample.MessageBox", "sap.m.sample.MessageBoxInfo", "sap.m.sample.MessageBoxTypes", "sap.m.sample.MessageBoxCustom" ]
+			},
+
+			{
+				"id" : "sap.m.MessagePopover",
+				"name" : "Message Popover",
+				"category" : "Popup",
+				"since" : "1.28",
+				"samples" : [ "sap.m.sample.MessagePopover" ]
 			},
 			{
 				"id" : "sap.m.MessageToast",
@@ -426,6 +415,25 @@
 				"samples" : [ "sap.m.sample.ObjectListItem",  "sap.m.sample.ObjectListItemMarkLocked"]
 			},
 			{
+				"id" : "sap.m.OverflowToolbar",
+				"name" : "Overflow Toolbar",
+				"category" : "Container",
+				"since" : "1.28",
+				"samples" : [
+					"sap.m.sample.OverflowToolbarSimple",
+					"sap.m.sample.OverflowToolbarFooter"
+				]
+			},
+			{
+				"id" : "sap.m.OverflowToolbarButton",
+				"name" : "Overflow Toolbar Button",
+				"category" : "Action",
+				"since" : "1.28",
+				"samples" : [
+					"sap.m.sample.OverflowToolbarFooter"
+				]
+			},
+			{
 				"id" : "sap.m.Page",
 				"name" : "Page",
 				"category" : "Container",
@@ -452,6 +460,7 @@
 				"since" : "1.10",
 				"samples" : [ "sap.m.sample.Popover", "sap.m.sample.PopoverNavCon" ]
 			},
+
 			{
 				"id" : "sap.m.ProgressIndicator",
 				"name" : "Progress Indicator",
@@ -519,7 +528,7 @@
 				"name" : "Segmented Button",
 				"category" : "User Input",
 				"since" : "1.10",
-				"samples" : [ "sap.m.sample.SegmentedButton" ]
+				"samples" : [ "sap.m.sample.SegmentedButton",  "sap.m.sample.SegmentedButtonVSD",  "sap.m.sample.SegmentedButtonDialog",  "sap.m.sample.SegmentedButtonLI"]
 			},
 			{
 				"id" : "sap.m.Select",
@@ -534,6 +543,13 @@
 				"category" : "List",
 				"since" : "1.26",
 				"samples" : [ "sap.m.sample.SelectList" ]
+			},
+			{
+			  "id" : "sap.m.semantic.SemanticPage",
+			  "name" : "Semantic Page",
+			  "category" : "Container",
+			  "since" : "1.30",
+			  "samples" : [ "sap.m.sample.SemanticPage", "sap.m.sample.SemanticPageFullScreen"]
 			},
 			{
 				"id" : "sap.m.MultiComboBox",
@@ -554,7 +570,7 @@
 				"name" : "Multi Input",
 				"category" : "User Input",
 				"since" : "1.22",
-				"samples" : [ "sap.m.sample.MultiInput", "sap.m.sample.MultiInputValidators" ]
+				"samples" : [ "sap.m.sample.MultiInput", "sap.m.sample.MultiInputValidators", "sap.m.sample.MultiInputMultiLine" ]
 			},
 			{
 				"id" : "sap.m.SelectDialog",
@@ -636,7 +652,7 @@
 				"name" : "Text Area",
 				"category" : "User Input",
 				"since" : "1.10",
-				"samples" : [ "sap.m.sample.TextArea" ]
+				"samples" : [ "sap.m.sample.TextArea", "sap.m.sample.TextAreaValueUpdate" ]
 			},
 			{
 				"id" : "sap.m.TileContainer",
@@ -685,7 +701,6 @@
 						"sap.m.sample.ToolbarEnabled",
 						"sap.m.sample.ToolbarShrinkable",
 						"sap.m.sample.Page",
-						"sap.m.sample.ToolbarResponsiveCss",
 						"sap.m.sample.ToolbarVsBar",
 						"sap.m.sample.TitleToolBar"
 					]
@@ -707,7 +722,6 @@
 			{
 				"id" : "sap.ui.core.StandardMargins",
 				"name" : "Standard Margins",
-				"appComponent" : "CA-UI5-COR",
 				"category" : "Layout",
 				"since" : "1.28",
 				"formFactors" : "-",
@@ -716,7 +730,6 @@
 			{
 				"id" : "sap.ui.core.ContainerPadding",
 				"name" : "Standard Paddings",
-				"appComponent" : "CA-UI5-COR",
 				"category" : "Layout",
 				"since" : "1.28",
 				"formFactors" : "-",
@@ -728,21 +741,15 @@
 				"category" : "Display",
 				"since" : "1.28",
 				"samples" : [
-					"sap.m.sample.MessagePageNoItems",
-					"sap.m.sample.MessagePageSearchFilter"
+					"sap.m.sample.MessagePage"
 				]
 			}
 		],
 		"samples" : [
 			{
-				"id": "sap.m.sample.MessagePageNoItems",
-				"name": "MessagePage - No Items",
-				"description": "This sample displays the MessagePage when there is no data available"
-			},
-			{
-				"id": "sap.m.sample.MessagePageSearchFilter",
-				"name": "MessagePage - Search/Filter",
-				"description": "This sample displays the MessagePage when there is no matching content for the search string or for the selected filter category."
+				"id": "sap.m.sample.MessagePage",
+				"name": "Message Page",
+				"description": "This sample displays the MessagePage with basic information."
 			},
 			{
 				"id": "sap.m.sample.ComboBox",
@@ -753,11 +760,6 @@
 				"id": "sap.m.sample.DateRangeSelection",
 				"name": "Date Range Selection",
 				"description": "The Date Range Selection is an extension of the Date Picker Control and enables the user to select range of dates."
-			},
-			{
-				"id": "sap.m.sample.ToolbarResponsiveCss",
-				"name": "Responsive Toolbar",
-				"description": "Depending on the screen size, Buttons will move in an action sheet or will be displayed in a Toolbar."
 			},
 			{
 				"id": "sap.m.sample.ToolbarVsBar",
@@ -992,7 +994,7 @@
 			{
 				"id": "sap.m.sample.Text",
 				"name": "Text",
-				"description": "With the Text control you can embed longer paragraphs of text into your application that need text wrapping."
+				"description": "The text control can be used for embedding longer paragraphs of text into your application, that need text wrapping."
 			},
 			{
 				"id": "sap.m.sample.TextMaxLines",
@@ -1039,11 +1041,11 @@
 				"name": "Object Header - Condensed",
 				"description": "The Object Header is shown in condensed mode with title, number, number unit and one attribute."
 			},
-			{
-				"id": "sap.m.sample.ObjectHeaderResponsiveI",
-				"name": "Object Header Responsive I",
-				"description": "This is a responsive Object Header with a Title, 2 Statuses/Attributes rendered next to the title in a fullScreenOptimized mode (fullScreenOptimized = true)."
-			},
+		  {
+			"id": "sap.m.sample.ObjectHeaderResponsiveI",
+			"name": "Object Header Responsive I",
+			"description": "This is a responsive Object Header with a Title, 2 Statuses/Attributes rendered next to the title in a fullScreenOptimized mode (fullScreenOptimized = true)."
+		  },
 			{
 				"id": "sap.m.sample.ObjectHeaderResponsiveII",
 				"name": "Object Header Responsive II",
@@ -1115,6 +1117,21 @@
 				"description": "The Segmented Button allows the user to pick one out of many options for displaying the content of the current page. It is a UI pattern from iOS, now also available for other platforms. Putting the Segmented Button to a Bar control on non-iOS platforms will result in something very close to a tab."
 			},
 			{
+				"id": "sap.m.sample.SegmentedButtonVSD",
+				"name": "Segmented Button in View Settings Dialog",
+				"description": "Segmented Button used in View Settings Dialog component"
+			},
+			{
+				"id": "sap.m.sample.SegmentedButtonDialog",
+				"name": "Segmented Button in Dialog",
+				"description": "Segmented Button used in Dialog component"
+			},
+			{
+				"id": "sap.m.sample.SegmentedButtonLI",
+				"name": "Segmented Button in Input List Item",
+				"description": "Segmented Button used in Input List Item component"
+			},
+			{
 				"id": "sap.m.sample.Select",
 				"name": "Select",
 				"description": "Illustrates the usage of a Select in header, footer and content of a page. Note the different display options."
@@ -1123,6 +1140,16 @@
 				"id": "sap.m.sample.SelectList",
 				"name": "SelectList",
 				"description": "A SelectList allows the user to select one item from a list of choices."
+			},
+			{
+			  "id": "sap.m.sample.SemanticPage",
+			  "name": "Semantic Page",
+			  "description": "Semantic Page"
+			},
+			{
+			  "id": "sap.m.sample.SemanticPageFullScreen",
+			  "name": "Semantic Page Full Screen",
+			  "description": "Semantic Page Full Screen"
 			},
 			{
 				"id": "sap.m.sample.ActionSelect",
@@ -1150,6 +1177,11 @@
 				"description": "MultiInput uses validators to accept, decline and change tokens."
 			},
 			{
+				"id": "sap.m.sample.MultiInputMultiLine",
+				"name": "MultiInput Multi-line Mode",
+				"description": "Multi-line display mode allows to fully view all tokens and easily edit tokens in the MultiInput. This display mode should be used if you need overview of all content in the MultiInput."
+			},
+			{
 				"id": "sap.m.sample.Token",
 				"name": "Token",
 				"description": "Token renders a token containing text and an optional delete icon."
@@ -1170,6 +1202,11 @@
 				"description": "The Text Area allows to enter multi-line text and automatically breaks to a new line for overflow text. If the text gets too big to be displayed at once the user can scroll up and down."
 			},
 			{
+				"id": "sap.m.sample.TextAreaValueUpdate",
+				"name": "TextArea - Value Update",
+				"description": "Since 1.30 the value property of sap.m.TextArea is not updated on every keystroke, but first when the user presses Enter or leaves the input. The change was necessary to fully support the standard UI5 data binding with formatters and types. If you still need immediate update you have 2 options: Handle liveChange events or enable the boolean property valueLiveUpdate."
+			},
+			{
 				"id": "sap.m.sample.Switch",
 				"name": "Switch",
 				"description": "\"Some say it is only a switch, I say it is one of the most stylish controls in the universe of mobile UI controls.\" (unknown developer)"
@@ -1180,9 +1217,9 @@
 				"description": "Use the Search Field to let the user enter a search string and trigger the search process."
 			},
 			{
-				"id": "sap.m.sample.DialogSearch",
-				"name": "Dialog with Search",
-				"description": "When using a Search Field in a Dialog it is best to put it to the dialog's sub header to have it visible all the time."
+			  "id": "sap.m.sample.DialogConfirm",
+			  "name": "Dialog With Confirm Options",
+			  "description": "Creating a dialog with confirm and reject options that replaces the confirmDialog functionality."
 			},
 			{
 				"id": "sap.m.sample.ListSelectionSearch",
@@ -1325,11 +1362,6 @@
 				"description": "You can use enableBusyIndicator property to display loading animation while the data is being loaded from server. By default, this property is true and busy indicator will be shown after 1000ms. This behavior can be customized by setting the busyIndicatorDelay property. When this property is set to false, items stay on the List until data loading is completed."
 			},
 			{
-				"id": "sap.m.sample.P13nDialogController",
-				"name": "P13nDialogController",
-				"description": "tbd"
-			},
-			{
 				"id": "sap.m.sample.TableViewSettingsDialog",
 				"name": "Table - View Settings",
 				"description": "The View Settings Dialog is standard UI pattern for specifying sorting, grouping and filtering. For a table it should be triggered by a button in the table header with the 'drop-down-list' icon. The active filter should be shown with the table's info bar."
@@ -1442,7 +1474,12 @@
 			{
 				"id": "sap.m.sample.MessageBox",
 				"name": "Message Box",
-				"description": "MessageBox is an easier way of showing a message type dialog. You only need to provide the message that you want to show to the user."
+				"description": "MessageBox is an easy way of displaying a message-type dialog to the user. You can display different types of dialogs:\n- Types of message (Alert, Confirmation, etc.)\n- Initial focus can be set to the buttons or the controls used in the message"
+			},
+			{
+				"id": "sap.m.sample.MessageBoxInfo",
+				"name": "Message Box Details",
+				"description": "MessageBox with the option to display detailed information."
 			},
 			{
 				"id": "sap.m.sample.MessageBoxTypes",
@@ -1451,8 +1488,13 @@
 			},
 			{
 				"id": "sap.m.sample.MessageBoxCustom",
-				"name": "Message Box with Custom Content",
-				"description": "Here a MessageBox is described how it can be used with custom content - a layout e.g. Additionaly it is show how any binding can be used within the custom content."
+				"name": "Message Box Custom Content",
+				"description": "MessageBox with custom content (e.g. a layout or checkboxes). Additionally for large content horizontal and vertical scrolling can be enabled or disabled."
+			},
+			{
+				"id": "sap.m.sample.MessagePopover",
+				"name": "MessagePopover",
+				"description": "MessagePopover is a control that displays a summarized list of different types of messages (errors, warnings, success and information). It provides a handy and systemized way to navigate and explore details for every message."
 			},
 			{
 				"id": "sap.m.sample.MessageToast",
@@ -1485,6 +1527,16 @@
 				"description": "Typically a Dialog prompts the user for decisions or additional information required by the application. The content of a dialog is fully customizable. If you want to highlight important information you should use the special type of 'Message Dialog'."
 			},
 			{
+			  "id": "sap.m.sample.DialogMessage",
+			  "name": "Message Dialog",
+			  "description": "Creating a dialog for showing UI messages. The possible messages types are: 'None', 'Success', 'Warning' and 'Error'."
+			},
+			{
+			  "id": "sap.m.sample.DialogConfirm",
+			  "name": "Dialog With Confirm Options",
+			  "description": "Creating a dialog with confirm and reject options that replaces the confirmDialog functionality."
+			},
+			{
 				"id": "sap.m.sample.ViewSettingsDialog",
 				"name": "View Settings Dialog - Standard",
 				"description": "The View Settings Dialog is a standard UI pattern for specifying sorting, grouping and filtering."
@@ -1513,6 +1565,11 @@
 				"id": "sap.m.sample.UploadCollection",
 				"name": "Upload Collection",
 				"description": "This control allows users to upload single or multiple files from their device (desktop PC, tablet or phone) and attach them into the application."
+			},
+			{
+			  "id": "sap.m.sample.SemanticPage",
+			  "name": "Semantic Page",
+			  "description": "Semantic Page"
 			},
 			{
 				"id": "sap.m.sample.StandardMarginsAbout",
@@ -1573,6 +1630,16 @@
 				"id": "sap.m.sample.ContainerPaddingAndMargin",
 				"name": "Container Content Padding and Margins",
 				"description": "By combining the margin and padding concepts you can flexibly design your application layout without having to write any custom CSS. This example shows a HorizontalLayout that is layouted with the standard margin and padding classes provided by UI5."
+			},
+            {
+				"id": "sap.m.sample.OverflowToolbarSimple",
+				"name": "Overflow Toolbar - layout",
+				"description": "Overflow Toolbar can contain the same controls as Toolbar with the added benefit that buttons that do not fit are moved to an Action Sheet when overflow occurs."
+			},
+			{
+				"id": "sap.m.sample.OverflowToolbarFooter",
+				"name": "Overflow Toolbar - in a table and in the footer of a page",
+				"description": "Overflow Toolbar is useful for showing lists of action buttons that can display an icon in the toolbar, and icon+text when in the overflow."
 			}
 		]
 	}

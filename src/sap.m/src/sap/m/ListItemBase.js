@@ -59,6 +59,14 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control'],
 			 */
 			counter : {type : "int", group : "Misc", defaultValue : null}
 		},
+		associations: {
+
+			/**
+			 * Association to controls / ids which label this control (see WAI-ARIA attribute aria-labelledby).
+			 * @since 1.28.0
+			 */
+			ariaLabelledBy: { type: "sap.ui.core.Control", multiple: true, singularName: "ariaLabelledBy" }
+		},
 		events : {
 	
 			/**
@@ -99,6 +107,10 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control'],
 		this._active = false;
 	};
 	
+	ListItemBase.prototype.onAfterRendering = function() {
+		this.informList("DOMUpdate", true);
+	};
+	
 	/*
 	 * Returns the binding context path via checking the named model of parent
 	 *
@@ -121,21 +133,14 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control'],
 	/*
 	 * Returns the responsible list control
 	 * 
-	 * @param {function} [fnCallback] callback method
 	 * @returns {sap.m.ListBase|undefined} 
 	 * @protected
 	 */
 	ListItemBase.prototype.getList = function(fnCallback) {
 		var oParent = this.getParent();
-		if (!(oParent instanceof sap.m.ListBase)) {
-			return;
+		if (oParent instanceof sap.m.ListBase) {
+			return oParent;
 		}
-		
-		if (fnCallback) {
-			fnCallback.call(this, oParent);
-		}
-		
-		return oParent;
 	};
 	
 	/*
@@ -165,12 +170,13 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control'],
 	 * @protected
 	 */
 	ListItemBase.prototype.informList = function(sEvent, vParam1, vParam2) {
-		this.getList(function(oList) {
+		var oList = this.getList();
+		if (oList) {
 			var sMethod = "onItem" + sEvent;
 			if (oList[sMethod]) {
 				oList[sMethod](this, vParam1, vParam2);
 			}
-		});
+		}
 	};
 	
 	/*
@@ -395,6 +401,12 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control'],
 		return !(sMode == sap.m.ListMode.None || sMode == sap.m.ListMode.Delete);
 	};
 	
+	ListItemBase.prototype.getSelected = function() {
+		if (this.isSelectable()) {
+			return this.getProperty("selected");
+		}
+		return false;
+	};
 
 	/**
 	 * Returns the state of the item selection as a boolean
@@ -405,27 +417,7 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control'],
 	 * API Change makes this method unnecessary. Use getSelected method instead.
 	 * @ui5-metamodel This method also will be described in the UI5 (legacy) designtime metamodel
 	 */
-	ListItemBase.prototype.isSelected = function() {
-		if (this.isSelectable()) {
-			return this.getProperty("selected");
-		}
-		return false;
-	};
-	
-	ListItemBase.prototype.getSelected = function() {
-		return this.isSelected();
-	};
-	
-	ListItemBase.prototype.setVisible = function(bVisible) {
-		bVisible = this.validateProperty("visible", bVisible);
-		if (this.getVisible() == bVisible) {
-			return this;
-		}
-	
-		this.setProperty("visible", bVisible);
-		this.informList("VisibleChange", bVisible);
-		return this;
-	};
+	ListItemBase.prototype.isSelected = ListItemBase.prototype.getSelected;
 	
 	ListItemBase.prototype.setSelected = function(bSelected, bDontNotifyParent) {
 		// do not handle when item is not selectable or in same status
@@ -444,14 +436,20 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control'],
 		if (oSelectionControl) {
 			oSelectionControl.setSelected(bSelected);
 		}
-	
-		// update DOM
-		this.$().toggleClass("sapMLIBSelected", bSelected);
+
+		// run the hook to update dom state 
+		this.updateSelectedDOM(bSelected, this.$());
 	
 		// set the property and do not invalidate
 		this.setProperty("selected", bSelected, true);
 		
 		return this;
+	};
+	
+	// Updates the selected state of the DOM
+	ListItemBase.prototype.updateSelectedDOM = function(bSelected, $LI) {
+		$LI.toggleClass("sapMLIBSelected", bSelected);
+		$LI.attr("aria-selected", bSelected);
 	};
 	
 	/**
@@ -732,7 +730,6 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control'],
 			this.fireDetailPress();
 			oEvent.preventDefault();
 			oEvent.setMarked();
-			return;
 		}
 	};
 	
@@ -789,8 +786,8 @@ sap.ui.define(['jquery.sap.global', './library', 'sap/ui/core/Control'],
 			return;
 		}
 	
-		// inform the list that this item should be focusable
-		oList.setItemFocusable(this);
+		// inform the list async that this item should be focusable
+		jQuery.sap.delayedCall(0, oList, "setItemFocusable", [this]);
 		oEvent.setMarked();
 	};
 

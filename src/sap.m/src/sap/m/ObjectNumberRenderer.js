@@ -126,7 +126,7 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/core/Renderer'],
 	 */
 	ObjectNumberRenderer._getTextAlignment = function(sTextAlign, sTextDir) {
 		sTextAlign = Renderer.getTextAlign(sTextAlign, sTextDir);
-		
+
 		return sTextAlign;
 	};
 	

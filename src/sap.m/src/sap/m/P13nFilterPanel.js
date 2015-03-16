@@ -16,7 +16,7 @@ sap.ui.define([
 	 * @param {object}
 	 *            [mSettings] initial settings for the new control
 	 * 
-	 * @class The FilterPanel Control can be used to...
+	 * @class The P13nFilterPanel control is used to define filter-specific settings for table personalization.
 	 * @extends sap.m.P13nPanel
 	 * @version ${version}
 	 * 
@@ -526,8 +526,10 @@ sap.ui.define([
 	P13nFilterPanel.prototype.removeAllFilterItems = function() {
 		var aFilterItems = this.removeAllAggregation("filterItems");
 
-		this.setConditions([]);
-
+		if (!this._bIgnoreBindCalls) {
+			this.setConditions([]);
+		}
+		
 		return aFilterItems;
 	};
 
@@ -586,10 +588,12 @@ sap.ui.define([
 				that._bIgnoreBindCalls = false;
 			}
 			if (sOperation === "remove") {
+				that._bIgnoreBindCalls = true;
 				that.fireRemoveFilterItem({
 					key: sKey,
 					index: iIndex
 				});
+				that._bIgnoreBindCalls = false;
 			}
 		};
 	};

@@ -13,7 +13,7 @@ sap.ui.define([
 	 * 
 	 * @param {string} [sId] id for the new control, generated automatically if no id is given
 	 * @param {object} [mSettings] initial settings for the new control
-	 * @class tbd
+	 * @class Base type for <code>panels</code> aggregation in P13nDialog control.
 	 * @extends sap.ui.core.Control
 	 * @version ${version}
 	 * @constructor
@@ -82,12 +82,22 @@ sap.ui.define([
 	});
 
 	/**
-	 * This method can be overwritten by subclass in order to return a payload
+	 * This method can be overwritten by subclass in order to return a payload for Ok action
+	 * 
+	 * @public
+	 * @since 1.26.7
+	 */
+	P13nPanel.prototype.getOkPayload = function() {
+		return {};
+	};
+	
+	/**
+	 * This method can be overwritten by subclass in order to return a payload for Reset action
 	 * 
 	 * @public
 	 * @since 1.28.0
 	 */
-	P13nPanel.prototype.getOkPayload = function() {
+	P13nPanel.prototype.getResetPayload = function() {
 		return {};
 	};
 	

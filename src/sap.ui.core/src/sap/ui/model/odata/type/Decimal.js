@@ -11,35 +11,6 @@ sap.ui.define(['sap/ui/core/format/NumberFormat', 'sap/ui/model/FormatException'
 	var rDecimal = /^[-+]?(\d+)(?:\.(\d+))?$/;
 
 	/**
-	 * Returns the matching error key for the type based on the constraints.
-	 *
-	 * @param {sap.ui.model.odata.type.Decimal} oType
-	 *   the type
-	 * @returns {string}
-	 *   the key
-	 */
-	function getErrorKey(oType) {
-		if (getScale(oType) === Infinity) {
-			return getPrecision(oType) === Infinity ? "EnterNumber" : "EnterNumberPrecision";
-		}
-		return getPrecision(oType) === Infinity ?
-			"EnterNumberScale" : "EnterNumberPrecisionScale";
-	}
-
-	/**
-	 * Returns the matching error message for the type based on the constraints.
-	 *
-	 * @param {sap.ui.model.odata.type.Decimal} oType
-	 *   the type
-	 * @returns {string}
-	 *   the message
-	 */
-	function getErrorMessage(oType) {
-		return sap.ui.getCore().getLibraryResourceBundle().getText(getErrorKey(oType),
-			[getPrecision(oType), getScale(oType)]);
-	}
-
-	/**
 	 * Returns the formatter. Creates it lazily.
 	 * @param {sap.ui.model.odata.type.Decimal} oType
 	 *   the type instance
@@ -50,12 +21,15 @@ sap.ui.define(['sap/ui/core/format/NumberFormat', 'sap/ui/model/FormatException'
 		var oFormatOptions, iScale;
 
 		if (!oType.oFormat) {
-			oFormatOptions = {groupingEnabled: true};
+			oFormatOptions = {
+				groupingEnabled: true,
+				maxIntegerDigits: Infinity
+			};
 			iScale = getScale(oType);
-
 			if (iScale !== Infinity) {
-				oFormatOptions.maxFractionDigits = oFormatOptions.minFractionDigits = iScale;
+				oFormatOptions.minFractionDigits = oFormatOptions.maxFractionDigits = iScale;
 			}
+			oFormatOptions = jQuery.extend(oFormatOptions, oType.oFormatOptions);
 			oType.oFormat = NumberFormat.getFloatInstance(oFormatOptions);
 		}
 		return oType.oFormat;
@@ -86,6 +60,20 @@ sap.ui.define(['sap/ui/core/format/NumberFormat', 'sap/ui/model/FormatException'
 	}
 
 	/**
+	 * Fetches a text from the message bundle and formats it using the parameters.
+	 *
+	 * @param {string} sKey
+	 *   the message key
+	 * @param {any[]} aParams
+	 *   the message parameters
+	 * @returns {string}
+	 *   the message
+	 */
+	function getText(sKey, aParams) {
+		return sap.ui.getCore().getLibraryResourceBundle().getText(sKey, aParams);
+	}
+
+	/**
 	 * Returns the type's nullable constraint.
 	 *
 	 * @param {sap.ui.model.odata.type.Decimal} oType
@@ -95,55 +83,6 @@ sap.ui.define(['sap/ui/core/format/NumberFormat', 'sap/ui/model/FormatException'
 	 */
 	function isNullable(oType) {
 		return !oType.oConstraints || oType.oConstraints.nullable !== false;
-	}
-
-	/**
-	 * Normalizes the given number to the fixed format.
-	 *
-	 * @param {object} oFormatOptions
-	 *   the format options
-	 * @param {string} sText
-	 *   the number entered by a user with sign, decimal and grouping separator according to given
-	 *   format options
-	 * @returns {string}
-	 *   the normalized number consisting of an optional "-", at least one digit and an optional
-	 *   "." followed by more digits (<code>/-?\d+(\.\d+)?/</code>) or <code>undefined</code> if
-	 *   the given text is in the wrong format
-	 */
-	function normalizeNumber(oFormatOptions, sText) {
-		var aMatches,
-			sNewText,
-			sSign = "";
-
-		// remove all whitespace
-		sText = sText.replace(/\s/g, "");
-
-		// determine the sign
-		switch (sText.charAt(0)) {
-		case oFormatOptions.minusSign:
-			sSign = "-";
-			// falls through
-		case oFormatOptions.plusSign:
-			sText = sText.slice(1);
-			break;
-		// no default
-		}
-
-		// remove all grouping separators
-		while ((sNewText = sText.replace(oFormatOptions.groupingSeparator, "")) !== sText) {
-			sText = sNewText;
-		}
-
-		// replace one decimal separator by the dot
-		sText = sText.replace(oFormatOptions.decimalSeparator, ".");
-
-		// check validity and normalize
-		aMatches = /^(\d*)(?:\.(\d*))?$/.exec(sText);
-		if (aMatches) {
-			return sSign
-				+ (aMatches[1] || "0")
-				+ (aMatches[2] ? "." + aMatches[2] : "");
-		}
 	}
 
 	/**
@@ -216,8 +155,11 @@ sap.ui.define(['sap/ui/core/format/NumberFormat', 'sap/ui/model/FormatException'
 	 *
 	 * @alias sap.ui.model.odata.type.Decimal
 	 * @param {object} [oFormatOptions]
-	 *   format options as defined in the interface of {@link sap.ui.model.SimpleType}; this
-	 *   type ignores them since it does not support any format options
+	 *   format options as defined in {@link sap.ui.core.format.NumberFormat}. In contrast to
+	 *   NumberFormat <code>groupingEnabled</code> defaults to <code>true</code>.
+	 *   Note that <code>maxFractionDigits</code> and <code>minFractionDigits</code> are set to
+	 *   the value of the constraint <code>scale</code> unless it is "variable". They can however
+	 *   be overwritten.
 	 * @param {object} [oConstraints]
 	 *   constraints; {@link #validateValue validateValue} throws an error if any constraint is
 	 *   violated
@@ -243,6 +185,7 @@ sap.ui.define(['sap/ui/core/format/NumberFormat', 'sap/ui/model/FormatException'
 			{
 				constructor : function (oFormatOptions, oConstraints) {
 					ODataType.apply(this, arguments);
+					this.oFormatOptions = oFormatOptions;
 					setConstraints(this, oConstraints);
 				}
 			}
@@ -287,6 +230,14 @@ sap.ui.define(['sap/ui/core/format/NumberFormat', 'sap/ui/model/FormatException'
 	 * Parses the given value, which is expected to be of the given type, to a decimal in
 	 * <code>string</code> representation.
 	 *
+	 * If certain format options are defined and you parse a value with <code>sSourceType</code>
+	 * "string", floating point numbers will be used internally.
+	 * This may cause a loss of precision (e.g.
+	 * "1,234,567,890,123,456,789" will be parsed to "1234567890123456800"). The following options
+	 * do not cause this effect: decimals, decimalSeparator, groupingEnabled, groupingSeparator,
+	 * maxFractionDigits, maxIntegerDigits, minFractionDigits, minIntegerDigits, minusSign and
+	 * plusSign.
+	 *
 	 * @param {string|number} vValue
 	 *   the value to be parsed; the empty string and <code>null</code> will be parsed to
 	 *   <code>null</code>
@@ -309,9 +260,11 @@ sap.ui.define(['sap/ui/core/format/NumberFormat', 'sap/ui/model/FormatException'
 		}
 		switch (sSourceType) {
 		case "string":
-			sResult = normalizeNumber(getFormatter(this).oFormatOptions, vValue);
+			sResult = ODataType.normalizeNumber(this.oFormatOptions, getFormatter(this), vValue,
+				/^0*(\d*)(?:\.(\d*?)0*)?$/);
 			if (!sResult) {
-				throw new ParseException(getErrorMessage(this));
+				throw new ParseException(sap.ui.getCore().getLibraryResourceBundle()
+					.getText("EnterNumber"));
 			}
 			break;
 		case "int":
@@ -348,23 +301,39 @@ sap.ui.define(['sap/ui/core/format/NumberFormat', 'sap/ui/model/FormatException'
 	 * @public
 	 */
 	Decimal.prototype.validateValue = function (sValue) {
-		var iFractionDigits, iIntegerDigits, aMatches;
+		var iFractionDigits, iIntegerDigits, aMatches, iPrecision, iScale;
 
 		if (sValue === null && isNullable(this)) {
 			return;
 		}
-		if (typeof sValue === "string") {
-			aMatches = rDecimal.exec(sValue);
-			if (aMatches) {
-				iIntegerDigits = aMatches[1].length;
-				iFractionDigits = (aMatches[2] || "").length;
-				if (iFractionDigits <= getScale(this)
-					&& iIntegerDigits + iFractionDigits <= getPrecision(this)) {
-					return;
-				}
-			}
+		if (typeof sValue !== "string") {
+			throw new ValidateException(getText("EnterNumber"));
 		}
-		throw new ValidateException(getErrorMessage(this));
+		aMatches = rDecimal.exec(sValue);
+		if (!aMatches) {
+			throw new ValidateException(getText("EnterNumber"));
+		}
+		iIntegerDigits = aMatches[1].length;
+		iFractionDigits = (aMatches[2] || "").length;
+		iScale = getScale(this);
+		iPrecision = getPrecision(this);
+		if (iFractionDigits > iScale) {
+			if (iScale === 0) {
+				throw new ValidateException(getText("EnterInt"));
+			} else if (iIntegerDigits + iScale > iPrecision) {
+				throw new ValidateException(getText("EnterNumberIntegerFraction",
+					[iPrecision - iScale, iScale]));
+			}
+			throw new ValidateException(getText("EnterNumberFraction", [iScale]));
+		}
+		if (iScale === Infinity) {
+			if (iIntegerDigits + iFractionDigits > iPrecision) {
+				throw new ValidateException(getText("EnterNumberPrecision", [iPrecision]));
+			}
+		} else if (iIntegerDigits > iPrecision - iScale) {
+			throw new ValidateException(getText("EnterNumberInteger",
+				[iPrecision - iScale]));
+		}
 	};
 
 	/**

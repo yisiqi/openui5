@@ -9,7 +9,6 @@
 
 	var sDefaultLanguage = sap.ui.getCore().getConfiguration().getLanguage();
 
-	jQuery.sap.require("sap.ui.model.odata.type.Decimal");
 	jQuery.sap.require("sap.ui.core.Control");
 
 	//*********************************************************************************************
@@ -31,28 +30,8 @@
 		ok(!(oType instanceof sap.ui.model.type.Float), "is not a Float");
 		strictEqual(oType.getName(), "sap.ui.model.odata.type.Decimal", "type name");
 		strictEqual(oType.oConstraints, undefined, "default constraints");
+		strictEqual(oType.oFormatOptions, undefined, "default format options");
 		strictEqual(oType.oFormat, null, "no formatter preload");
-	});
-
-	//*********************************************************************************************
-	test("w/ float format options", function () {
-		var oType = new sap.ui.model.odata.type.Decimal({
-				minIntegerDigits: 5,
-				maxIntegerDigits: 5,
-				minFractionDigits: 5,
-				maxFractionDigits: 5,
-				pattern: "",
-				groupingEnabled: false,
-				groupingSeparator: "'",
-				decimalSeparator: ",",
-				plusSign: '+',
-				minusSign: '-',
-				showMeasure: true,
-				style: 'short',
-				roundingMode: 'floor'
-			});
-
-		strictEqual(oType.oFormatOptions, undefined, "float format options are ignored");
 	});
 
 	//*********************************************************************************************
@@ -73,7 +52,7 @@
 			warning: "Illegal precision: 0"},
 		{i: {precision: 2, scale: 3}, o: {precision: 2, scale: Infinity},
 			warning: "Illegal scale: must be less than precision (precision=2, scale=3)"}
-    ], function (i, oFixture) {
+	], function (i, oFixture) {
 		test("setConstraints(" + JSON.stringify(oFixture.i) + ")", function () {
 			var oType = new sap.ui.model.odata.type.Decimal();
 
@@ -121,6 +100,10 @@
 		strictEqual(oType.parseValue("1,234,567.89", "string"), "1234567.89",
 			"multiple grouping separators");
 		strictEqual(oType.parseValue(" -12345 ", "string"), "-12345", "spaces");
+		strictEqual(oType.parseValue("0012345", "string"), "12345", "leading zeroes");
+		strictEqual(oType.parseValue("0", "string"), "0", "only 0");
+		strictEqual(oType.parseValue("12345.00000", "string"), "12345", "trailing zeroes");
+		strictEqual(oType.parseValue("12345.101010", "string"), "12345.10101", "trailing zero");
 		strictEqual(oType.parseValue(".1234", "string"), "0.1234", "no integer digits");
 		strictEqual(oType.parseValue("-1234.", "string"), "-1234", "decimal point w/o decimals");
 		throws(function () {
@@ -148,22 +131,26 @@
 	});
 
 	//*********************************************************************************************
-	test("parse large numbers, modified Swedish", function () {
-		var fnLocaleData = sap.ui.core.LocaleData.getInstance,
-			oType;
+	test("large numbers, modified Swedish", function () {
+		var oType = new sap.ui.model.odata.type.Decimal({plusSign: ">", minusSign: "<"},
+				{scale: "variable"}),
+			oValue = "-1",
+			oExpected = "<1";
 
 		// special: non-breaking space as grouping separator
-		// We did not find any locale using different characters for plus or minus sign, so we
-		// modify the LocaleData here.
-		this.stub(sap.ui.core.LocaleData, "getInstance", function () {
-			var oLocaleData = fnLocaleData.apply(this, arguments);
-			oLocaleData.mData["symbols-latn-plusSign"] = ">";
-			oLocaleData.mData["symbols-latn-minusSign"] = "<";
-			return oLocaleData;
-		});
-
 		sap.ui.getCore().getConfiguration().setLanguage("sv");
-		oType = new sap.ui.model.odata.type.Decimal();
+
+		strictEqual(oType.formatValue("1234567890123456.789012", "string"),
+			"1\u00a0234\u00a0567\u00a0890\u00a0123\u00a0456,789012",
+			"format w/ decimals");
+		strictEqual(oType.formatValue("-1234567890123456789012", "string"),
+			"<1\u00a0234\u00a0567\u00a0890\u00a0123\u00a0456\u00a0789\u00a0012",
+			"format w/ minus");
+		while (oValue.length < 102) {
+			oValue += "000";
+			oExpected += "\u00a0000";
+		}
+		strictEqual(oType.formatValue(oValue, "string"), oExpected, "format >99 integer digits");
 
 		strictEqual(oType.parseValue(">1 234 567 890 123 456,789012", "string"),
 			"1234567890123456.789012", "plus sign, spaces");
@@ -174,70 +161,111 @@
 	});
 
 	//*********************************************************************************************
-	jQuery.each([
-		{constraints: {scale: 1}, error: "EnterNumberScale 1"},
-		{constraints: {precision: 10, scale: 3}, error: "EnterNumberPrecisionScale 10 3"},
-		{constraints: {precision: 1, scale: "variable"}, error: "EnterNumberPrecision 1"},
-		{constraints: {scale: "variable"}, error: "EnterNumber"}
-	], function (i, oFixture) {
-		test("parse: user error: " + JSON.stringify(oFixture.constraints), function () {
-			sap.ui.test.TestUtils.withNormalizedMessages(function () {
-				var oType = new sap.ui.model.odata.type.Decimal({}, oFixture.constraints);
+	test("parse large numbers w/ format options", function () {
+		var oFormatOptions = {
+				plusSign: '+',
+				minusSign: '-',
+				minFractionDigits: 5,
+				maxFractionDigits: 10,
+				minIntegerDigits: 5,
+				maxIntegerDigits: 10,
+				decimals: 10,
+				groupingEnabled: false,
+				groupingSeparator: "'",
+				decimalSeparator: '.'
+			}, oType;
 
-				try {
-					oType.parseValue("foo", "string");
-					ok(false);
-				} catch (e) {
-					ok(e instanceof sap.ui.model.ParseException);
-					strictEqual(e.message, oFixture.error);
-				}
-			});
+		oType = new sap.ui.model.odata.type.Decimal();
+		strictEqual(oType.parseValue("1 234 567 890 123 456.789012", "string"),
+				"1234567890123456.789012", "no format options -> full precision");
+
+		oType = new sap.ui.model.odata.type.Decimal(oFormatOptions);
+		strictEqual(oType.parseValue("1 234 567 890 123 456.789012", "string"),
+				"1234567890123456.789012", "only safe format options -> full precision");
+
+		// random format option considered "unsafe" --> use NumberFormat losing precision
+		// Check only 17 characters incl. the dot to see that we are near, but avoid rounding
+		// effects in different browsers
+		oFormatOptions.foo = "bar";
+		oType = new sap.ui.model.odata.type.Decimal(oFormatOptions);
+		strictEqual(oType.parseValue("123 456 789 012 345.6789012", "string").slice(0, 17),
+			"123456789012345.6", "random format option -> losing precision");
+
+		// check that short style works
+		oType = new sap.ui.model.odata.type.Decimal({style: "short"});
+		strictEqual(oType.parseValue("1K", "string"), "1000", 'style: "short"');
+
+		// error handling with short style
+		sap.ui.test.TestUtils.withNormalizedMessages(function () {
+			try {
+				oType.parseValue("no number", "string");
+				ok(false, "no error");
+			} catch (e) {
+				ok(e instanceof sap.ui.model.ParseException);
+				strictEqual(e.message, "EnterNumber");
+			}
 		});
 	});
 
 	//*********************************************************************************************
-	jQuery.each([false, 1, "foo", "1.1", "1234", "1.234E-32"], function (i, sValue) {
-		test("validate errors: " + JSON.stringify(sValue), function () {
+	test("parse: user error: not a number", function () {
+		sap.ui.test.TestUtils.withNormalizedMessages(function () {
+			var oType = new sap.ui.model.odata.type.Decimal({}, {scale: 3});
+
+			try {
+				oType.parseValue("foo", "string");
+				ok(false);
+			} catch (e) {
+				ok(e instanceof sap.ui.model.ParseException);
+				strictEqual(e.message, "EnterNumber");
+			}
+		});
+	});
+
+	//*********************************************************************************************
+	jQuery.each([
+		{value: false, error: "EnterNumber"},
+		{value: 42, error: "EnterNumber"},
+		{value: "a", error: "EnterNumber"},
+		{value: "1.234E-32", error: "EnterNumber"},
+		{value: "1.23", constraints: {precision: 2, scale: 1},
+			error: "EnterNumberFraction 1"},
+		{value: "12.3", constraints: {precision: 3, scale: 2},
+			error: "EnterNumberInteger 1"},
+		{value: "12.34", constraints: {precision: 3, scale: "variable"},
+			error: "EnterNumberPrecision 3"},
+		{value: "1.2", error: "EnterInt"},
+		{value: "123.45", constraints: {precision: 3, scale: 1},
+			error: "EnterNumberIntegerFraction 2 1"},
+		// excess zeros are treated as error (parseValue removes them)
+		{value: "1.0", error: "EnterInt"},
+		{value: "012", constraints: {precision: 2}, error: "EnterNumberInteger 2"},
+	], function (i, oFixture) {
+		test("validate: " + oFixture.value, function () {
 			sap.ui.test.TestUtils.withNormalizedMessages(function () {
-				var oType = new sap.ui.model.odata.type.Decimal({}, {precision: 3});
+				var oType = new sap.ui.model.odata.type.Decimal({}, oFixture.constraints);
 
 				try {
-					oType.validateValue(sValue);
+					oType.validateValue(oFixture.value);
 					ok(false);
 				} catch (e) {
 					ok(e instanceof sap.ui.model.ValidateException);
-					strictEqual(e.message, "EnterNumberPrecisionScale 3 0");
+					strictEqual(e.message, oFixture.error);
 				}
 			});
 		});
-	});
+	}),
 
 	//*********************************************************************************************
 	test("validate success", 0, function () {
 		var oType = new sap.ui.model.odata.type.Decimal({}, {precision: 6, scale: 3});
 
 		jQuery.each(["+1.1", "+123.123", "-123.1", "+123.1", "1.123", "-1.123", "123.1", "1",
-		            "-123"],
+					"-123"],
 			function (i, sValue) {
 				oType.validateValue(sValue);
 			}
 		);
-	});
-
-	//*********************************************************************************************
-	test("integer + fraction", function () {
-		sap.ui.test.TestUtils.withNormalizedMessages(function () {
-			var oType = new sap.ui.model.odata.type.Decimal({}, {precision: 6, scale: 3}),
-				sValue = "-1234.567";
-
-			try {
-				oType.validateValue(sValue);
-				ok(false);
-			} catch (e) {
-				ok(e instanceof sap.ui.model.ValidateException);
-				strictEqual(e.message, "EnterNumberPrecisionScale 6 3");
-			}
-		});
 	});
 
 	//*********************************************************************************************
@@ -263,18 +291,6 @@
 				oType.validateValue(sValue);
 			}
 		);
-
-		sap.ui.test.TestUtils.withNormalizedMessages(function () {
-			jQuery.each(["1234", "123.4", "1.234"], function (i, sValue) {
-				try {
-					oType.validateValue(sValue);
-					ok(false);
-				} catch (e) {
-					ok(e instanceof sap.ui.model.ValidateException);
-					strictEqual(e.message, "EnterNumberPrecision 3");
-				}
-			});
-		});
 	});
 
 	//*********************************************************************************************
@@ -308,5 +324,44 @@
 
 		oType= new sap.ui.model.odata.type.Decimal({}, {nullable: "true"});
 		strictEqual(oType.oConstraints, undefined);
+	});
+
+	//*********************************************************************************************
+	jQuery.each([{
+		set: {foo: "bar"},
+		expect: {foo: "bar", groupingEnabled: true, maxIntegerDigits: Infinity}
+	}, {
+		set: {decimalSeparator: ".", maxIntegerDigits: 20}, scale: 13,
+		expect: {decimalSeparator: ".", groupingEnabled: true, maxFractionDigits: 13,
+			maxIntegerDigits: 20, minFractionDigits: 13}
+	}, {
+		set: {groupingEnabled: false}, scale: 13,
+		expect: {groupingEnabled: false, maxFractionDigits: 13, maxIntegerDigits: Infinity,
+			minFractionDigits: 13}
+	}, {
+		set: {decimals: 20}, scale: 13,
+		expect: {decimals: 20, groupingEnabled: true, maxFractionDigits: 13,
+			maxIntegerDigits: Infinity, minFractionDigits: 13}
+	}, {
+		set: {maxFractionDigits: 20}, scale: 13,
+		expect: {groupingEnabled: true, maxFractionDigits: 20, maxIntegerDigits: Infinity,
+			minFractionDigits: 13}
+	}, {
+		set: {minFractionDigits: 10}, scale: 13,
+		expect: {groupingEnabled: true, maxFractionDigits: 13, maxIntegerDigits: Infinity,
+			minFractionDigits: 10}
+	}], function (i, oFixture) {
+		test("formatOptions: " + JSON.stringify(oFixture.set), function () {
+			var oSpy,
+				oType = new sap.ui.model.odata.type.Decimal(oFixture.set, {
+					scale: oFixture.scale || "variable"
+				});
+
+			deepEqual(oType.oFormatOptions, oFixture.set);
+
+			oSpy = this.spy(sap.ui.core.format.NumberFormat, "getFloatInstance");
+			oType.formatValue("42", "string");
+			sinon.assert.calledWithExactly(oSpy, oFixture.expect);
+		});
 	});
 } ());

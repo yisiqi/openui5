@@ -13,7 +13,7 @@ sap.ui.define([
 	 * 
 	 * @param {string} [sId] id for the new control, generated automatically if no id is given
 	 * @param {object} [mSettings] initial settings for the new control
-	 * @class The ColumnsPanel can be used for personalization of the table to define column specific settings
+	 * @class The P13nColumnsPanel control is used to define column-specific settings for table personalization.
 	 * @extends sap.m.P13nPanel
 	 * @author SAP SE
 	 * @version ${version}
@@ -339,7 +339,13 @@ sap.ui.define([
 		// Get search filter value
 		if (this._bSearchFilterActive) {
 			sSearchText = this._oSearchField.getValue();
-			if (sSearchText !== null) {
+
+			// replace white-spaces at BEGIN & END of the searchText, NOT IN BETWEEN!!
+			if (sSearchText) {
+				sSearchText = sSearchText.replace(/(^\s+)|(\s+$)/g, '');
+			}
+			// create RegEx for search only if a searchText exist!!
+			if (sSearchText !== null && sSearchText !== undefined) { // " " is a VALID value!!!
 				regExp = new RegExp(sSearchText, 'igm'); // i = ignore case; g = global; m = multiline
 			}
 		}
@@ -726,21 +732,49 @@ sap.ui.define([
 	};
 
 	/**
-	 * extract all needed information from given columnsItems to create a JSON based list
+	 * This method extracts all information from given columnsItems array into a JSON based list
 	 * 
 	 * @private
 	 * @param {array} aColumnsItems list of columnsItems
+	 * @returns {array} aExtractionResult is a JSON based array with main information about the given columnsItems array
 	 */
 	P13nColumnsPanel.prototype._extractExistingColumnsItems = function(aColumnsItems) {
-		var aExtractionResult = [], oExtractedObject = null;
+		var aExtractionResult = null, oExtractedObject = null;
 
 		if (aColumnsItems && aColumnsItems.length > 0) {
+			aExtractionResult = [];
 			aColumnsItems.forEach(function(oColumnsItem) {
 				oExtractedObject = {
 					columnKey: oColumnsItem.getColumnKey(),
 					index: oColumnsItem.getIndex(),
 					visible: oColumnsItem.getVisible(),
 					width: oColumnsItem.getWidth()
+				};
+				aExtractionResult.push(oExtractedObject);
+			});
+		}
+
+		return aExtractionResult;
+	};
+
+	/**
+	 * This method extracts all information from existing table items into a JSON based list
+	 * 
+	 * @private
+	 * @returns {array} aExtractionResult is a JSON based array with main information about table items
+	 */
+	P13nColumnsPanel.prototype._extractExistingTableItems = function() {
+		var aExtractionResult = null, oExtractedObject = null;
+		var aTableItems = this._oTable.getItems();
+
+		if (aTableItems && aTableItems.length > 0) {
+			aExtractionResult = [];
+			aTableItems.forEach(function(oTableItem, iIndex) {
+				oExtractedObject = {
+					columnKey: oTableItem.data('P13nColumnKey'),
+					index: iIndex,
+					visible: oTableItem.getSelected(),
+					width: oTableItem.data('P13nColumnWidth')
 				};
 				aExtractionResult.push(oExtractedObject);
 			});
@@ -1185,6 +1219,57 @@ sap.ui.define([
 		}
 	};
 
+	/**
+	 * This method returns a boolean based status, whether the panel has been changed
+	 * 
+	 * @private
+	 * @returns {Boolean} bTableItemsChangeStatus that returns true if something was changed and otherwise false
+	 */
+	P13nColumnsPanel.prototype._getTableItemsChangeStatus = function() {
+		var bTableItemsChangeStatus = false, oTableItemNow = null;
+		var aTableItemsNow = this._extractExistingTableItems();
+
+		if (this._aExistingTableItems && !aTableItemsNow) {
+			bTableItemsChangeStatus = true;
+		} else if (aTableItemsNow && !this._aExistingTableItems) {
+			bTableItemsChangeStatus = true;
+		} else if (this._aExistingTableItems && aTableItemsNow) {
+			// Compare existing table items saved from first OnAfterRendering with table items now
+			this._aExistingTableItems.forEach(function(oExistingTableItem, iExistingTableItemIndex) {
+				oTableItemNow = null;
+				if (iExistingTableItemIndex < aTableItemsNow.length) {
+					oTableItemNow = aTableItemsNow[iExistingTableItemIndex];
+				}
+
+				// Comparison
+				if (oTableItemNow) {
+					if (oExistingTableItem.columnKey !== oTableItemNow.columnKey) {
+						bTableItemsChangeStatus = true;
+					}
+					if (oExistingTableItem.index !== oTableItemNow.index) {
+						bTableItemsChangeStatus = true;
+					}
+					if (oExistingTableItem.visible !== oTableItemNow.visible) {
+						bTableItemsChangeStatus = true;
+					}
+					if (oExistingTableItem.width !== oTableItemNow.width) {
+						bTableItemsChangeStatus = true;
+					}
+
+				} else {
+					bTableItemsChangeStatus = true;
+				}
+
+				// Stop comparison at first difference
+				if (bTableItemsChangeStatus) {
+					return;
+				}
+			});
+		}
+
+		return bTableItemsChangeStatus;
+	};
+
 	/* =========================================================== */
 	/* Lifecycle methods */
 	/* =========================================================== */
@@ -1198,7 +1283,8 @@ sap.ui.define([
 		var iLiveChangeTimer = 0;
 		var that = this;
 		this._bOnAfterRenderingFirstTimeExecuted = false;
-		this._aExistingColumnsItems = [];
+		this._aExistingColumnsItems = null;
+		this._aExistingTableItems = null;
 
 		// ---------------------------------------------------------------
 		// Following object _oTableItemsOrdering handles the table behavior for sorting of included items
@@ -1379,6 +1465,19 @@ sap.ui.define([
 	};
 
 	/**
+	 * This method does a re-initialization of the panel
+	 * 
+	 * @public
+	 * @since 1.28
+	 */
+	P13nColumnsPanel.prototype.reInitialize = function() {
+
+		// Reactivate one time sorting
+		this._oTableItemsOrdering.fOrderOnlyFirstTime();
+		this._oTableItemsOrdering.fCheckReOrdering();
+	};
+
+	/**
 	 * Required adaptations after rendering
 	 * 
 	 * @private
@@ -1420,6 +1519,11 @@ sap.ui.define([
 			}
 		}
 
+		// Save existing table items to be able to calculate changes
+		if (this._aExistingTableItems === null || this._aExistingTableItems === undefined) {
+			this._aExistingTableItems = this._extractExistingTableItems();
+		}
+
 		this._updateSelectAllDescription();
 	};
 
@@ -1432,20 +1536,44 @@ sap.ui.define([
 	 */
 	P13nColumnsPanel.prototype.getOkPayload = function() {
 		var oPayload = null, aSelectedItems = [], oSelectedItem = null;
-		var aSelectedTableItems = this._oTable.getSelectedItems();
+		var aTableItems = this._extractExistingTableItems();
 
-		if (aSelectedTableItems && aSelectedTableItems.length > 0) {
+		if (aTableItems && aTableItems.length > 0) {
 			oPayload = {
+				"tableItems": aTableItems,
+				"tableItemsChanged": false,
 				"selectedItems": aSelectedItems
+
 			};
 
-			aSelectedTableItems.forEach(function(oSelectedTableItem) {
-				oSelectedItem = {
-					"columnKey": oSelectedTableItem.data('P13nColumnKey')
-				};
-				aSelectedItems.push(oSelectedItem);
+			aTableItems.forEach(function(oTableItem) {
+				if (oTableItem && oTableItem.visible && oTableItem.visible === true) {
+					oSelectedItem = {
+						"columnKey": oTableItem.columnKey
+					};
+					aSelectedItems.push(oSelectedItem);
+				}
 			});
+
+			oPayload.tableItemsChanged = this._getTableItemsChangeStatus();
 		}
+
+		return oPayload;
+	};
+
+	/**
+	 * Delivers a payload for columnsPanel that can be used at consumer side
+	 * 
+	 * @public
+	 * @since 1.28
+	 * @returns {object} oPayload, which contains useful information
+	 */
+	P13nColumnsPanel.prototype.getResetPayload = function() {
+		var oPayload = null;
+
+		oPayload = {
+			"oPanel": this
+		};
 
 		return oPayload;
 	};

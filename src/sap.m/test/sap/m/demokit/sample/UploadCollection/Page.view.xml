@@ -6,7 +6,7 @@
 	xmlns:mvc="sap.ui.core.mvc"
 	xmlns="sap.m">
 
-	 <Page>
+	<Page showHeader="false">
 		<content>
 			<Toolbar>
 				<ToolbarSpacer/>
@@ -15,7 +15,6 @@
 				</Label>
 				<Select
 					id="tbSelect"
-					autoAdjustWidth="true"
 					items="{/items}"
 					selectedKey="{/selectedKey}"
 					change="onSelectChange" >
@@ -24,10 +23,11 @@
 			</Toolbar>
 			<UploadCollection
 				id="UploadCollection"
-				maximumFilenameLength="35"
+				maximumFilenameLength="55"
 				multiple="true"
 				items="{/items}"
 				showSeparators="None"
+				change="onChange"
 				fileDeleted="onFileDeleted"
 				fileRenamed="onFileRenamed"
 				uploadComplete="onUploadComplete" >

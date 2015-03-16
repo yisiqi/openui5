@@ -778,7 +778,10 @@ sap.ui.define(['jquery.sap.global', './NavContainer', './library', 'sap/ui/core/
 					if (sap.ui.Device.browser.internet_explorer && sap.ui.Device.browser.version < 10) {
 						jQuery.sap.delayedCall(100, that, that._handlePopoverAfterClose, [oList]);
 					} else {
-						that._handlePopoverAfterClose(oList);
+					that._handlePopoverAfterClose(oList);
+//fix remove icon press issue. click remove icon and can't remove facet, so delay the popover close
+						//jQuery.sap.delayedCall(100, that, that._handlePopoverAfterClose, [oList]);
+						oPopover.destroySubHeader();
 					}
 				},
 				horizontalScrolling: false
@@ -1048,7 +1051,10 @@ oPopover.setContentWidth("30%");
 			var oFromPage = oEvent.getParameters()['from'];
 			//keyboard acc - focus on 1st item of 2nd page
 			if (oFromPage === oFacetPage) {
-				jQuery.sap.focus(oToPage.getContent(0)[1].getItemNavigation().getItemDomRefs()[0]);
+				var oFirstItem = oToPage.getContent(0)[1].getItems()[0];
+				if (oFirstItem) {
+					oFirstItem.focus();
+				}
 			}
 			if (oToPage === oFacetPage) {
 				// Destroy the search field bar
@@ -1716,12 +1722,13 @@ oPopover.setContentWidth("30%");
 	 * @param oSummaryBar
 	 * @private
 	 */
-	FacetFilter.prototype._addResetToSummary = function(oSummaryBar) {
-
-		if (oSummaryBar.getContent().length === 1) {
-
-			oSummaryBar.addContent(new sap.m.ToolbarSpacer({width: ""})); // Push the reset button to the end of the toolbar
-			oSummaryBar.addContent(this._createResetButton());
+FacetFilter.prototype._addResetToSummary = function(oSummaryBar) {
+	if (oSummaryBar.getContent().length === 1) {
+		oSummaryBar.addContent(new sap.m.ToolbarSpacer({width: ""})); // Push the reset button to the end of the toolbar
+			var oButton = this._createResetButton();
+			oSummaryBar.addContent(oButton);
+			oButton.addStyleClass("sapMFFRefresh");
+			oButton.addStyleClass("sapMFFBtnHoverable");
 		}
 	};
 

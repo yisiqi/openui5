@@ -7,20 +7,23 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/BindingParser'],
 	function(jQuery, BindingParser) {
 		'use strict';
 
-		var rBadChars = /[\\\{\}:]/, // @see sap.ui.base.BindingParser: rObject, rBindingChars
+		var AnnotationHelper,
+			rBadChars = /[\\\{\}:]/, // @see sap.ui.base.BindingParser: rObject, rBindingChars
+			// path to entity type ("/dataServices/schema/<i>/entityType/<j>")
+			rEntityTypePath = /^(\/dataServices\/schema\/\d+\/entityType\/\d+)(?:\/|$)/,
 			fnEscape = BindingParser.complexParser.escape;
 
 		/**
 		 * Handling of "14.5.3.1.1 Function odata.concat".
 		 *
+		 * @param {sap.ui.core.util.XMLPreprocessor.IContext|sap.ui.model.Context} oInterface
+		 *   the callback interface related to the current formatter call
 		 * @param {object[]} aParameters
 		 *   the parameters
-		 * @param {sap.ui.model.Binding} oBinding
-		 *   the binding related to the current formatter call
 		 * @returns {string}
 		 *   the resulting string value to write into the processed XML
 		 */
-		function concat(aParameters, oBinding) {
+		function concat(oInterface, aParameters) {
 			var aParts = [],
 				i, oParameter;
 
@@ -29,17 +32,17 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/BindingParser'],
 				if (oParameter) {
 					switch (oParameter.Type) {
 					case "Path":
-						aParts.push(formatPath(oParameter.Value, oBinding));
+						aParts.push(formatPath(oInterface, oParameter.Value, true).value);
 						break;
 					case "String":
 						aParts.push(escapedString(oParameter.Value));
 						break;
 					//TODO support non-string constants
 					default:
-						aParts.push("<" + unsupported(oParameter) + ">");
+						aParts.push("[" + unsupported(oParameter) + "]");
 					}
 				} else {
-					aParts.push("<" + unsupported(oParameter) + ">");
+					aParts.push("[" + unsupported(oParameter) + "]");
 				}
 			}
 			return aParts.join("");
@@ -58,28 +61,97 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/BindingParser'],
 		}
 
 		/**
+		 * Calculates a dynamic expression.
+		 *
+		 * @param {sap.ui.core.util.XMLPreprocessor.IContext|sap.ui.model.Context} oInterface
+		 *   the callback interface related to the current formatter call
+		 * @param {object} oRawValue
+		 *   the raw value from the meta model
+		 * @returns {object}
+		 *   the evaluated expression with the following parameters:
+		 *   result: "constant", "binding" or "expression"
+		 *   value: the value to write into the resulting string; constant values are not escaped;
+		 *     expressions are not wrapped (no "{=" and "}")
+		 *   type: the EDM data type (like "Edm.String") if it could be determined
+		 */
+		function dynamicExpression(oInterface, oRawValue) {
+			var sResult;
+
+			if (!oRawValue) {
+				return {
+					result: "constant",
+					value: unsupported(oRawValue, true),
+					type: "Edm.String"
+				};
+			}
+
+			switch (oRawValue.Type) {
+			case "Path": // 14.5.12 Expression edm:Path
+				return formatPath(oInterface, oRawValue.Value, false);
+			case "String": // 14.4.11 Expression edm:String
+				return {
+					result: "constant",
+					value: oRawValue.Value,
+					type: "Edm.String"
+				};
+			case undefined:
+				if (oRawValue.Path) { // 14.5.12 Expression edm:Path
+					return formatPath(oInterface, oRawValue.Path, false);
+				}
+				break;
+			// fall through to the global "unsupported"
+			// no default
+			}
+
+			// 14.5.3 Expression edm:Apply
+			if (oRawValue.Apply && typeof oRawValue.Apply === "object") {
+				switch (oRawValue.Apply.Name) {
+				case "odata.uriEncode": // 14.5.3.1.3 Function odata.uriEncode
+					sResult = uriEncode(oInterface, oRawValue.Apply.Parameters);
+					if (sResult) {
+						return {
+							result: "expression",
+							value: sResult.slice(2, -1),
+							type: "Edm.String"
+						};
+					}
+					break;
+				// fall through to the global "unsupported"
+				// no default
+				}
+			}
+
+			//TODO constants, apply functions
+			return {
+				result: "constant",
+				value: unsupported(oRawValue, true),
+				type: "Edm.String"
+			};
+		}
+
+		/**
 		 * Handling of "14.5.3.1.2 Function odata.fillUriTemplate".
 		 *
+		 * @param {sap.ui.core.util.XMLPreprocessor.IContext|sap.ui.model.Context} oInterface
+		 *   the callback interface related to the current formatter call
 		 * @param {object[]} aParameters
 		 *   the parameters
-		 * @param {sap.ui.model.Binding} oBinding
-		 *   the binding related to the current formatter call
 		 * @returns {string}
 		 *   an expression binding in the format "{= odata.fillUriTemplate('template',
 		 *   {'param1': ${path1}, 'param2': ${path2}, ...}" or <code>undefined</code>
 		 *   if the parameters could not be processed
 		 */
-		function fillUriTemplate(aParameters, oBinding) {
+		function fillUriTemplate(oInterface, aParameters) {
 			var i,
 				aParts = [],
 				sPrefix,
-				sValue;
+				oParameter;
 
-			if (!jQuery.isArray(aParameters) || !aParameters.length
+			if (!jQuery.isArray(aParameters) || !aParameters.length || !aParameters[0]
 					|| aParameters[0].Type !== "String") {
 				return undefined;
 			}
-			aParts.push('{= odata.fillUriTemplate(');
+			aParts.push('{=odata.fillUriTemplate(');
 			aParts.push(stringify(aParameters[0].Value));
 			aParts.push(', {');
 			sPrefix = "";
@@ -87,16 +159,16 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/BindingParser'],
 				aParts.push(sPrefix);
 				aParts.push(stringify(aParameters[i].Name));
 				aParts.push(": ");
-				sValue = aParameters[i].Value.Value;
-				// TODO support expressions, not only paths
-				if (aParameters[i].Value.Type !== "Path" || rBadChars.test(sValue)) {
-					aParts.push("'<Unsupported: ");
-					aParts.push(stringify(aParameters[i].Value).replace(/'/g, "\\'"));
-					aParts.push(">'");
-				} else {
-					aParts.push("${");
-					aParts.push(sValue);
-					aParts.push("}");
+				oParameter = dynamicExpression(oInterface, aParameters[i].Value);
+				switch (oParameter.result) {
+				case "binding":
+					aParts.push("$" + oParameter.value);
+					break;
+				case "expression":
+					aParts.push(oParameter.value);
+					break;
+				default:
+					aParts.push(stringify(oParameter.value));
 				}
 				sPrefix = ", ";
 			}
@@ -105,143 +177,220 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/BindingParser'],
 		}
 
 		/**
-		 * Follows the given path in the given model, starting at the given resolved path,
-		 * and returns the resulting resolved path.
+		 * Follows the dynamic "14.5.12 Expression edm:Path" (or variant thereof) contained within
+		 * the given raw value, starting the absolute path identified by the given interface, and
+		 * returns the resulting absolute path as well as some other aspects about the path.
 		 *
-		 * @param {sap.ui.model.odata.ODataMetaModel} oModel
-		 *   the current model
-		 * @param {string} sResolvedPath
-		 *   an absolute path to start from
-		 * @param {string} sPath
-		 *   the value of the dynamic "14.5.12 Expression edm:Path" (or variant thereof)
-		 * @returns {string}
-		 *   the resulting resolved path
+		 * @param {sap.ui.core.util.XMLPreprocessor.IContext|sap.ui.model.Context} oInterface
+		 *   the callback interface related to the current formatter call; the path must be within
+		 *   an entity type!
+		 * @param {any} vRawValue
+		 *   the raw value from the meta model, e.g. <code>{AnnotationPath :
+		 *   "ToSupplier/@com.sap.vocabularies.Communication.v1.Address"}</code> or <code>
+		 *   {AnnotationPath : "@com.sap.vocabularies.UI.v1.FieldGroup#Dimensions"}</code>
+		 * @returns {object}
+		 *   - {object} [associationSetEnd=undefined]
+		 *   association set end corresponding to the last navigation property
+		 *   - {boolean} [navigationAfterMultiple=false]
+		 *   if the navigation path has an association end with multiplicity "*" which is not
+		 *   the last one
+		 *   - {boolean} [isMultiple=false]
+		 *   whether the navigation path ends with an association end with multiplicity "*"
+		 *   - {string[]} [navigationProperties=[]]
+		 *   all navigation property names
+		 *   - {string} [resolvedPath=undefined]
+		 *   the resulting absolute path
+		 * @see sap.ui.model.odata.AnnotationHelper.isMultiple
 		 */
-		function follow(oModel, sResolvedPath, sPath) {
+		function followPath(oInterface, vRawValue) {
 			var oAssociationEnd,
+				sContextPath,
 				oEntity,
-				aParts = sPath.split("/");
+				iIndexOfAt,
+				aMatches,
+				oModel = oInterface.getModel(),
+				aParts,
+				sPath,
+				oResult = {
+					associationSetEnd : undefined,
+					navigationAfterMultiple : false,
+					isMultiple : false,
+					navigationProperties : [],
+					resolvedPath : undefined
+				},
+				sSegment;
 
-			if (sPath === "") { // empty path
-				return sResolvedPath;
+			if (vRawValue && vRawValue.hasOwnProperty("AnnotationPath")) {
+				sPath = vRawValue.AnnotationPath;
+			} else if (vRawValue && vRawValue.hasOwnProperty("Path")) {
+				sPath = vRawValue.Path;
+			} else {
+				return undefined; // some unsupported case
 			}
 
-			while (aParts.length) {
-				// term cast
-				if (aParts[0].charAt(0) === "@") {
-					sResolvedPath += "/" + aParts[0].slice(1);
+			aMatches = rEntityTypePath.exec(oInterface.getPath());
+			if (!aMatches) {
+				return undefined;
+			}
+
+			// start at entity type ("/dataServices/schema/<i>/entityType/<j>")
+			sContextPath = aMatches[1];
+			aParts = sPath.split("/");
+
+			while (sPath && aParts.length && sContextPath) {
+				sSegment = aParts[0];
+				iIndexOfAt = sSegment.indexOf("@");
+				if (iIndexOfAt === 0) {
+					// term cast
+					sContextPath += "/" + sSegment.slice(1);
 					aParts.shift();
 					continue;
+//				} else if (iIndexOfAt > 0) { // annotation of a navigation property
+//					sSegment = sSegment.slice(0, iIndexOfAt);
 				}
 
-				oEntity = oModel.getObject(sResolvedPath);
-				oAssociationEnd = oModel.getODataAssociationEnd(oEntity, aParts[0]);
+				oEntity = oModel.getObject(sContextPath);
+				oAssociationEnd = oModel.getODataAssociationEnd(oEntity, sSegment);
 				if (oAssociationEnd) {
 					// navigation property
-					sResolvedPath = oModel.getODataEntityType(oAssociationEnd.type, true);
+					oResult.associationSetEnd
+						= oModel.getODataAssociationSetEnd(oEntity, sSegment);
+					oResult.navigationProperties.push(sSegment);
+					if (oResult.isMultiple) {
+						oResult.navigationAfterMultiple = true;
+					}
+					oResult.isMultiple = oAssociationEnd.multiplicity === "*";
+					sContextPath = oModel.getODataEntityType(oAssociationEnd.type, true);
 					aParts.shift();
 					continue;
 				}
 
-				sResolvedPath = oModel.getODataProperty(oEntity, aParts, true);
-				if (sResolvedPath) {
-					// structural properties
-					continue;
-				}
-
-				sResolvedPath = undefined; // some unsupported case
-				break;
+				// structural properties or some unsupported case
+				sContextPath = oModel.getODataProperty(oEntity, aParts, true);
 			}
 
-			return sResolvedPath;
+			oResult.resolvedPath = sContextPath;
+			return oResult;
 		}
 
 		/**
 		 * Handling of "14.5.12 Expression edm:Path".
 		 *
+		 * @param {sap.ui.core.util.XMLPreprocessor.IContext|sap.ui.model.Context} oInterface
+		 *   the callback interface related to the current formatter call
 		 * @param {string} sPath
 		 *   the string path value from the meta model
-		 * @param {sap.ui.model.Binding} oBinding
-		 *   the binding related to the current formatter call
-		 * @returns {string}
-		 *   the resulting string value to write into the processed XML
+		 * @param {boolean} bWithType
+		 *   if <code>true</code> the type is included into the binding
+		 * @returns {object}
+		 *   an object with the following parameters:
+		 *   <code>result</code> is "binding", <code>value</code> contains the resulting string
+		 *   value to write into the processed XML and <code>type</code> the property type (like
+		 *   "Edm.String")
 		 */
-		function formatPath(sPath, oBinding) {
+		function formatPath(oInterface, sPath, bWithType) {
 			var oConstraints = {},
-				oModel = oBinding.getModel(),
-				sResolvedPath // resolved binding path (not relative anymore!)
-					= oModel.resolve(oBinding.getPath(), oBinding.getContext()),
-				aParts = sResolvedPath.split("/"), // parts of binding path (between slashes)
-				aProperties,
+				sConstraints,
+				oModel = oInterface.getModel(),
+				sContextPath = oInterface.getPath(),
+				aMatches = rEntityTypePath.exec(sContextPath),
+				oEntityType,
+				aParts,
+				oProperty,
+				oResult = {result: "binding"},
 				sType;
 
-			if (aParts[0] === "" && aParts[1] === "dataServices" && aParts[2] === "schema") {
+			if (aMatches) {
 				// go up to "/dataServices/schema/<i>/entityType/<j>/"
-				aParts.splice(6, aParts.length - 6);
-				aParts.push("property");
-				aProperties = oModel.getProperty(aParts.join("/"));
+				oEntityType = oModel.getProperty(aMatches[1]);
 
-				jQuery.each(aProperties, function (i, oProperty) {
-					if (oProperty.name === sPath) {
-						switch (oProperty.type) {
-						case "Edm.Boolean":
-							sType = 'sap.ui.model.odata.type.Boolean';
-							break;
+				// determine the property given by sPath
+				aParts = sPath.split('/');
+				oProperty = oModel.getODataProperty(oEntityType, aParts);
 
-						case "Edm.DateTime":
-							sType = 'sap.ui.model.odata.type.DateTime';
-							oConstraints.displayFormat = oProperty["sap:display-format"];
-							break;
+				if (oProperty && !aParts.length) {
+					oResult.type = oProperty.type;
+					switch (oProperty.type) {
+					case "Edm.Boolean":
+						sType = 'sap.ui.model.odata.type.Boolean';
+						break;
 
-						case "Edm.DateTimeOffset":
-							sType = 'sap.ui.model.odata.type.DateTimeOffset';
-							break;
+					case "Edm.Byte":
+						sType = 'sap.ui.model.odata.type.Byte';
+						break;
 
-						case "Edm.Decimal":
-							sType = 'sap.ui.model.odata.type.Decimal';
-							oConstraints.precision = oProperty.precision;
-							oConstraints.scale = oProperty.scale;
-							break;
+					case "Edm.DateTime":
+						sType = 'sap.ui.model.odata.type.DateTime';
+						oConstraints.displayFormat = oProperty["sap:display-format"];
+						break;
 
-						case "Edm.Double":
-							sType = 'sap.ui.model.odata.type.Double';
-							break;
+					case "Edm.DateTimeOffset":
+						sType = 'sap.ui.model.odata.type.DateTimeOffset';
+						break;
 
-						case "Edm.Guid":
-							sType = 'sap.ui.model.odata.type.Guid';
-							break;
+					case "Edm.Decimal":
+						sType = 'sap.ui.model.odata.type.Decimal';
+						oConstraints.precision = oProperty.precision;
+						oConstraints.scale = oProperty.scale;
+						break;
 
-						case "Edm.Int16":
-							sType = 'sap.ui.model.odata.type.Int16';
-							break;
+					case "Edm.Double":
+						sType = 'sap.ui.model.odata.type.Double';
+						break;
 
-						case "Edm.Int32":
-							sType = 'sap.ui.model.odata.type.Int32';
-							break;
+					case "Edm.Guid":
+						sType = 'sap.ui.model.odata.type.Guid';
+						break;
 
-						case "Edm.SByte":
-							sType = 'sap.ui.model.odata.type.SByte';
-							break;
+					case "Edm.Int16":
+						sType = 'sap.ui.model.odata.type.Int16';
+						break;
 
-						case "Edm.String":
-							sType = 'sap.ui.model.odata.type.String';
-							oConstraints.maxLength = oProperty.maxLength;
-							break;
+					case "Edm.Int32":
+						sType = 'sap.ui.model.odata.type.Int32';
+						break;
 
-						case "Edm.Time":
-							sType = 'sap.ui.model.odata.type.Time';
-							break;
+					case "Edm.Int64":
+						sType = 'sap.ui.model.odata.type.Int64';
+						break;
 
-						default:
-							// type remains undefined, no mapping is known
-						}
-						oConstraints.nullable = oProperty.nullable;
+					case "Edm.SByte":
+						sType = 'sap.ui.model.odata.type.SByte';
+						break;
+
+					case "Edm.Single":
+					case "Edm.Float":
+						sType = 'sap.ui.model.odata.type.Single';
+						break;
+
+					case "Edm.String":
+						sType = 'sap.ui.model.odata.type.String';
+						oConstraints.maxLength = oProperty.maxLength;
+						break;
+
+					case "Edm.Time":
+						sType = 'sap.ui.model.odata.type.Time';
+						break;
+
+					default:
+						// type remains undefined, no mapping is known
 					}
-				});
+					oConstraints.nullable = oProperty.nullable;
+				}
 			}
 
-			return "{path : " + stringify(sPath) + ", type : '" + sType
-				+ "', constraints : " + stringify(oConstraints) + "}";
+			// TODO warn if type could not be determined
+			if (bWithType) {
+				sConstraints = stringify(oConstraints);
+				oResult.value = "{path : " + stringify(sPath) + ", type : '" + sType + "'"
+					+ (sConstraints === "{}" ? "" : ", constraints : " + sConstraints)
+					+ "}";
+			} else if (rBadChars.test(sPath)) {
+				oResult.value = "{path : " + stringify(sPath) + "}";
+			} else {
+				oResult.value = "{" + sPath + "}";
+			}
+			return oResult;
 		}
 
 		/**
@@ -310,19 +459,68 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/BindingParser'],
 		 *
 		 * @param {any} vRawValue
 		 *   the raw value from the meta model
+		 * @param {boolean} [bSkipEscaping]
+		 *   if <code>true</code> the result is not escaped for bindings
 		 * @returns {string}
 		 *   the resulting string value to write into the processed XML
 		 */
-		function unsupported(vRawValue) {
+		function unsupported(vRawValue, bSkipEscaping) {
+			var sText;
+
 			if (typeof vRawValue === "object") {
 				// anything else: convert to string, prefer JSON
 				try {
-					return fnEscape("Unsupported: " + stringify(vRawValue));
+					sText = "Unsupported: " + stringify(vRawValue);
 				} catch (ex) {
 					// "Converting circular structure to JSON"
+					sText = String(vRawValue);
 				}
+			} else {
+				sText = String(vRawValue);
 			}
-			return escapedString(vRawValue);
+			return bSkipEscaping ? sText : fnEscape(sText);
+		}
+
+		/**
+		 * Handling of "14.5.3.1.3 Function odata.uriEncode".
+		 *
+		 * @param {sap.ui.core.util.XMLPreprocessor.IContext|sap.ui.model.Context} oInterface
+		 *   the callback interface related to the current formatter call
+		 * @param {object[]} aParameters
+		 *   the parameters
+		 * @returns {string}
+		 *   an expression binding in the format "{= odata.uriEncode(${path})}" or
+		 *   <code>undefined</code> if the parameters could not be processed
+		 */
+		function uriEncode(oInterface, aParameters) {
+			var aParts = [],
+				oParameter = aParameters && aParameters[0],
+				oPathInfo;
+
+			if (!oParameter) {
+				return undefined;
+			}
+			aParts.push('{=odata.uriEncode(');
+			switch (oParameter.Type) {
+				case "Path":
+					aParts.push('$');
+					oPathInfo = formatPath(oInterface, oParameter.Value, false);
+					aParts.push(oPathInfo.value);
+					aParts.push(", '");
+					aParts.push(oPathInfo.type);
+					aParts.push("'");
+					break;
+				case "String":
+					aParts.push(stringify(oParameter.Value));
+					aParts.push(", 'Edm.String'");
+					break;
+				//TODO support non-string constants
+				default:
+					aParts.push(stringify("[Unsupported: " + stringify(oParameter) + "]"));
+					aParts.push(", 'Edm.String'");
+				}
+			aParts.push(')}');
+			return aParts.join("");
 		}
 
 		/**
@@ -343,25 +541,36 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/BindingParser'],
 		 * You need to {@link jQuery.sap.require} this module before use!
 		 *
 		 * @public
+		 * @since 1.27.0
 		 * @namespace sap.ui.model.odata.AnnotationHelper
 		 */
-		return /** @lends sap.ui.model.odata.AnnotationHelper */ {
+		AnnotationHelper = /** @lends sap.ui.model.odata.AnnotationHelper */ {
 			/**
 			 * A formatter function to be used in a complex binding inside an XML template view
 			 * in order to interpret OData v4 annotations. It knows about
 			 * <ul>
-			 *   <li> the constant "14.4.11 Expression edm:String", which is turned into a fixed
-			 *   text;
-			 *   <li> the dynamic "14.5.3 Expression edm:Apply"
+			 *   <li> the constant "14.4.11 Expression edm:String": This is turned into a fixed
+			 *   text (e.g. <code>"Width"</code>) or into a data binding expression (e.g. <code>
+			 *   "{/##/dataServices/schema/0/entityType/1/com.sap.vocabularies.UI.v1.FieldGroup#Dimensions/Data/0/Label/String}"
+			 *   </code>). Data binding expressions are used in case XML template processing has
+			 *   been started with the setting <code>bindTexts : true</code>. The purpose is to
+			 *   reference translatable texts from OData v4 annotations, especially for XML
+			 *   template processing at design time.
+			 *   <li> the dynamic "14.5.3 Expression edm:Apply":
 			 *   <ul>
-			 *     <li> "14.5.3.1.1 Function odata.concat" is turned into a data binding
-			 *     expression relative to an entity;
-			 *     <li> "14.5.3.1.2 Function odata.fillUriTemplate" is turned into an expression
-			 *     binding to fill the template at run-time;
+			 *     <li> "14.5.3.1.1 Function odata.concat": This is turned into a data binding
+			 *     expression relative to an entity.
+			 *     <li> "14.5.3.1.2 Function odata.fillUriTemplate": This is turned into an
+			 *     expression binding to fill the template at run-time.
+			 *     <li> "14.5.3.1.3 Function odata.uriEncode": This is turned into an expression
+			 *     binding to encode the parameter at run-time (it is possible to embed
+			 *     <code>odata.uriEncode</code> into <code>odata.fillUriTemplate</code>).
 			 *   </ul>
-			 *   <li> the dynamic "14.5.12 Expression edm:Path", which is turned into a data
+			 *   <li> the dynamic "14.5.12 Expression edm:Path": This is turned into a data
 			 *   binding relative to an entity, including type information and constraints as
-			 *   available from meta data.
+			 *   available from meta data, e.g. <code>"{path : 'Name',
+			 *   type : 'sap.ui.model.odata.type.String', constraints : {'maxLength':'255'}}"
+			 *   </code>.
 			 * </ul>
 			 * Unsupported values are turned into a string nevertheless, but indicated as such.
 			 * Illegal values are output "as is" for a human reader to make sense of them.
@@ -372,18 +581,24 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/BindingParser'],
 			 * &lt;Text text="{path: 'meta>Value', formatter: 'sap.ui.model.odata.AnnotationHelper.format'}" />
 			 * </pre>
 			 *
+			 * @param {sap.ui.core.util.XMLPreprocessor.IContext|sap.ui.model.Context} oInterface
+			 *   the callback interface related to the current formatter call
 			 * @param {any} vRawValue
 			 *   the raw value from the meta model
 			 * @returns {string}
 			 *   the resulting string value to write into the processed XML
 			 * @public
 			 */
-			format : function (vRawValue) {
+			format : function (oInterface, vRawValue) {
 				var sResult;
 
 				// 14.4.11 Expression edm:String
 				if (vRawValue && vRawValue.hasOwnProperty("String")) {
 					if (typeof vRawValue.String === "string") {
+						if (oInterface.getSetting && oInterface.getSetting("bindTexts")) {
+							sResult = "/##" + oInterface.getPath() + "/String";
+							return formatPath(oInterface, sResult, false).value;
+						}
 						return fnEscape(vRawValue.String);
 					}
 					return illegalValue(vRawValue, "String");
@@ -392,7 +607,7 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/BindingParser'],
 				// 14.5.12 Expression edm:Path
 				if (vRawValue && vRawValue.hasOwnProperty("Path")) {
 					if (typeof vRawValue.Path === "string") {
-						return formatPath(vRawValue.Path, this.currentBinding());
+						return formatPath(oInterface, vRawValue.Path, true).value;
 					}
 					return illegalValue(vRawValue, "Path");
 				}
@@ -402,12 +617,17 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/BindingParser'],
 					switch (vRawValue.Apply.Name) {
 					case "odata.concat": // 14.5.3.1.1 Function odata.concat
 						if (jQuery.isArray(vRawValue.Apply.Parameters)) {
-							return concat(vRawValue.Apply.Parameters, this.currentBinding());
+							return concat(oInterface, vRawValue.Apply.Parameters);
 						}
 						break;
 					case "odata.fillUriTemplate": // 14.5.3.1.2 Function odata.fillUriTemplate
-						sResult = fillUriTemplate(vRawValue.Apply.Parameters,
-							this.currentBinding());
+						sResult = fillUriTemplate(oInterface, vRawValue.Apply.Parameters);
+						if (sResult) {
+							return sResult;
+						}
+						break;
+					case "odata.uriEncode": // 14.5.3.1.3 Function odata.uriEncode
+						sResult = uriEncode(oInterface, vRawValue.Apply.Parameters);
 						if (sResult) {
 							return sResult;
 						}
@@ -435,10 +655,13 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/BindingParser'],
 			 * &lt;/template:if>
 			 * </pre>
 			 *
+			 * @param {sap.ui.core.util.XMLPreprocessor.IContext|sap.ui.model.Context} oInterface
+			 *   the callback interface related to the current formatter call
 			 * @param {any} vRawValue
 			 *   the raw value from the meta model, e.g. <code>{AnnotationPath :
 			 *   "ToSupplier/@com.sap.vocabularies.Communication.v1.Address"}</code> or <code>
-			 *   {AnnotationPath : "@com.sap.vocabularies.UI.v1.FieldGroup#Dimensions"}</code>
+			 *   {AnnotationPath : "@com.sap.vocabularies.UI.v1.FieldGroup#Dimensions"}</code>;
+			 *   embedded within an entity type
 			 * @returns {string}
 			 *   the resulting string value to write into the processed XML, e.g. "{ToSupplier}"
 			 *   or "{}" (in case no navigation is needed); returns "" in case the navigation path
@@ -446,26 +669,121 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/BindingParser'],
 			 *   statements!)
 			 * @public
 			 */
-			getNavigationPath : function (vRawValue) {
-				var aParts = [];
+			getNavigationPath : function (oInterface, vRawValue) {
+				var oResult = followPath(oInterface, vRawValue);
 
-				if (!vRawValue.AnnotationPath) {
-					return "";
+				return oResult
+					? "{" + oResult.navigationProperties.join("/") + "}"
+					: "";
+			},
+
+			/**
+			 * Helper function for a <code>template:with</code> instruction that goes to the
+			 * entity set with the given name or to the one determined by the last navigation
+			 * property of a dynamic "14.5.2 Expression edm:AnnotationPath", depending on how it
+			 * is called.
+			 *
+			 * Example:
+			 * <pre>
+			 *   &lt;template:with path="facet>Target" helper="sap.ui.model.odata.AnnotationHelper.gotoEntitySet" var="entitySet"/>
+			 *   &lt;template:with path="associationSetEnd>entitySet" helper="sap.ui.model.odata.AnnotationHelper.gotoEntitySet" var="entitySet"/>
+			 * </pre>
+			 *
+			 * @param {sap.ui.model.Context} oContext
+			 *   a context which must point to a simple string or to an annotation (or annotation
+			 *   property) of type <code>Edm.AnnotationPath</code>, embedded within an entity type;
+			 *   the context's model must be an {@link sap.ui.model.odata.ODataMetaModel}
+			 * @returns {string}
+			 *   the path to the entity set, or <code>undefined</code> if no such set is found
+			 * @public
+			 */
+			gotoEntitySet : function (oContext) {
+				var sEntitySet,
+					vRawValue = oContext.getObject(),
+					oResult;
+
+				if (typeof vRawValue === "string") {
+					sEntitySet = vRawValue;
+				} else {
+					oResult = followPath(oContext, vRawValue);
+					sEntitySet = oResult
+						&& oResult.associationSetEnd
+						&& oResult.associationSetEnd.entitySet;
 				}
 
-				jQuery.each(vRawValue.AnnotationPath.split("/"), function (iUnused, sSegment) {
-					var i = sSegment.indexOf("@");
+				return sEntitySet
+					? oContext.getModel().getODataEntitySet(sEntitySet, true)
+					: undefined;
+			},
 
-					if (i === 0) { // term cast
-						return false; // break
-					} else if (i > 0) { // annotation of a navigation property
-						aParts.push(sSegment.slice(0, i));
-						return false; // break
+			/**
+			 * Helper function for a <code>template:with</code> instruction that goes to the
+			 * entity type with the qualified name which <code>oContext</code> points at.
+			 *
+			 * Example: Assume that "entitySet" refers to an entity set within an OData meta model;
+			 * the helper function is then called on the "entityType" property of that entity set
+			 * (which holds the qualified name of the entity type) and in turn the path of that
+			 * entity type is assigned to the variable "entityType".
+			 * <pre>
+			 *   &lt;template:with path="entitySet>entityType" helper="sap.ui.model.odata.AnnotationHelper.gotoEntityType" var="entityType">
+			 * </pre>
+			 *
+			 * @param {sap.ui.model.Context} oContext
+			 *   a context which must point to the qualified name of an entity type;
+			 *   the context's model must be an {@link sap.ui.model.odata.ODataMetaModel}
+			 * @returns {string}
+			 *   the path to the entity type with the given qualified name,
+			 *   or <code>undefined</code> if no such type is found
+			 * @public
+			 */
+			gotoEntityType : function (oContext) {
+				return oContext.getModel().getODataEntityType(oContext.getProperty(""), true);
+			},
+
+			/**
+			 * A formatter function to be used in a complex binding inside an XML template view
+			 * in order to interpret OData v4 annotations. It knows about the dynamic
+			 * "14.5.2 Expression edm:AnnotationPath" and returns whether the navigation path
+			 * ends with an association end with multiplicity "*". It throws an error if the
+			 * navigation path has an association end with multiplicity "*" which is not the last
+			 * one.
+			 * Currently supports navigation properties. Term casts and annotations of
+			 * navigation properties terminate the navigation path.
+			 *
+			 * Examples:
+			 * <pre>
+			 * &lt;template:if test="{path: 'facet>Target', formatter: 'sap.ui.model.odata.AnnotationHelper.isMultiple'}">
+			 * </pre>
+			 *
+			 * @param {sap.ui.core.util.XMLPreprocessor.IContext|sap.ui.model.Context} oInterface
+			 *   the callback interface related to the current formatter call
+			 * @param {any} vRawValue
+			 *   the raw value from the meta model, e.g. <code>{AnnotationPath :
+			 *   "ToSupplier/@com.sap.vocabularies.Communication.v1.Address"}</code> or <code>
+			 *   {AnnotationPath : "@com.sap.vocabularies.UI.v1.FieldGroup#Dimensions"}</code>;
+			 *   embedded within an entity type
+			 * @returns {string}
+			 *    <code>"true"</code> if the navigation path ends with an association end with
+			 *    multiplicity "*", <code>""</code> in case the navigation path cannot be
+			 *    determined, <code>"false"</code> otherwise (the latter are both treated as falsy
+			 *    in <code>template:if</code> statements!)
+			 * @throws {Error}
+			 *   if the navigation path has an association end with multiplicity "*" which is not
+			 *   the last one
+			 * @public
+			 */
+			isMultiple : function (oInterface, vRawValue) {
+				var oResult = followPath(oInterface, vRawValue);
+
+				if (oResult) {
+					if (oResult.navigationAfterMultiple) {
+						throw new Error(
+							'Association end with multiplicity "*" is not the last one: '
+							+ vRawValue.AnnotationPath);
 					}
-					// navigation property
-					aParts.push(sSegment);
-				});
-				return "{" + aParts.join("/") + "}";
+					return String(oResult.isMultiple);
+				}
+				return "";
 			},
 
 			/**
@@ -489,21 +807,11 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/BindingParser'],
 			 * @public
 			 */
 			resolvePath : function (oContext) {
-				var aMatches,
-					vRawValue = oContext.getObject();
+				var oResult = followPath(oContext, oContext.getObject());
 
-				aMatches = /^(\/dataServices\/schema\/\d+\/entityType\/\d+)(?:\/|$)/.exec(
-					oContext.getPath());
-				if (aMatches) {
-					// start at entity type ("/dataServices/schema/<i>/entityType/<j>")
-					if (vRawValue.hasOwnProperty("AnnotationPath")) {
-						return follow(oContext.getModel(), aMatches[1], vRawValue.AnnotationPath);
-					}
-					if (vRawValue.hasOwnProperty("Path")) {
-						return follow(oContext.getModel(), aMatches[1], vRawValue.Path);
-					}
-					return undefined; // some unsupported case
-				}
+				return oResult
+					? oResult.resolvedPath
+					: undefined;
 			},
 
 			/**
@@ -519,19 +827,19 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/BindingParser'],
 			 *   &lt;sfi:SmartField value="{path: 'meta>Value', formatter: 'sap.ui.model.odata.AnnotationHelper.simplePath'}"/>
 			 * </pre>
 			 *
+			 * @param {sap.ui.core.util.XMLPreprocessor.IContext|sap.ui.model.Context} oInterface
+			 *   the callback interface related to the current formatter call
 			 * @param {any} vRawValue
 			 *   the raw value from the meta model
 			 * @returns {string}
 			 *   the resulting string value to write into the processed XML
 			 * @public
 			 */
-			simplePath : function (vRawValue) {
+			simplePath : function (oInterface, vRawValue) {
 				// 14.5.12 Expression edm:Path
 				if (vRawValue && vRawValue.hasOwnProperty("Path")) {
 					if (typeof vRawValue.Path === "string") {
-						return rBadChars.test(vRawValue.Path)
-							? formatPath(vRawValue.Path, this.currentBinding())
-							: "{" + vRawValue.Path + "}";
+						return formatPath(oInterface, vRawValue.Path, false).value;
 					}
 					return illegalValue(vRawValue, "Path");
 				}
@@ -539,4 +847,11 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/base/BindingParser'],
 				return unsupported(vRawValue);
 			}
 		};
+
+		AnnotationHelper.format.requiresIContext = true;
+		AnnotationHelper.getNavigationPath.requiresIContext = true;
+		AnnotationHelper.isMultiple.requiresIContext = true;
+		AnnotationHelper.simplePath.requiresIContext = true;
+
+		return AnnotationHelper;
 	}, /* bExport= */ true);
