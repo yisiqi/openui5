@@ -60,8 +60,8 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/model/Model', 'sap/ui/model/odata/OD
 			mHeaders, bTokenHandling,
 			bWithCredentials, sMaxDataServiceVersion,
 			bUseBatch, bRefreshAfterChange, sAnnotationURI, bLoadAnnotationsJoined,
-			sDefaultCountMode, sDefaultBindingMode, mMetadataNamespaces, mServiceUrlParams,
-			mMetadataUrlParams, bJSON, that = this;
+			sDefaultCountMode, sDefaultBindingMode, mMetadataNamespaces,
+			mServiceUrlParams, mMetadataUrlParams, aMetadataUrlParams, bJSON, that = this;
 
 			if (typeof (sServiceUrl) === "object") {
 				mParameters = sServiceUrl;
@@ -86,7 +86,6 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/model/Model', 'sap/ui/model/odata/OD
 				mMetadataUrlParams = mParameters.metadataUrlParams;
 				bJSON = mParameters.json;
 			}
-
 			this.mSupportedBindingModes = {"OneWay": true, "OneTime": true, "TwoWay":true};
 			this.sDefaultBindingMode = sDefaultBindingMode || sap.ui.model.BindingMode.OneWay;
 
@@ -155,8 +154,9 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/model/Model', 'sap/ui/model/odata/OD
 			}
 
 			if (!this.oServiceData.oMetadata) {
+				aMetadataUrlParams = ODataUtils._createUrlParamsArray(mMetadataUrlParams);
 				//create Metadata object
-				this.oMetadata = new sap.ui.model.odata.ODataMetadata(this._createRequestUrl("/$metadata", undefined, mMetadataUrlParams),
+				this.oMetadata = new sap.ui.model.odata.ODataMetadata(this._createRequestUrl("/$metadata", undefined, aMetadataUrlParams),
 						{ async: this.bLoadMetadataAsync, user: this.sUser, password: this.sPassword, headers: this.mCustomHeaders, namespaces: mMetadataNamespaces, withCredentials: this.bWithCredentials});
 				this.oServiceData.oMetadata = this.oMetadata;
 			} else {
@@ -976,7 +976,8 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/model/Model', 'sap/ui/model/odata/OD
 
 		// create the url for the service
 		var sNormalizedPath,
-		sUrl = "";
+			aAllUrlParameters = [],
+			sUrl = "";
 
 		sNormalizedPath = this._normalizePath(sPath, oContext);
 
@@ -985,9 +986,16 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/model/Model', 'sap/ui/model/odata/OD
 		} else {
 			sUrl = sNormalizedPath.substr(sNormalizedPath.indexOf('/') + 1);
 		}
-
-		if (aUrlParams && aUrlParams.length > 0) {
-			sUrl += "?" + aUrlParams.join("&");
+		
+		if (this.aUrlParams) {
+			aAllUrlParameters = aAllUrlParameters.concat(this.aUrlParams);
+		}
+		if (aUrlParams) {
+			aAllUrlParameters = aAllUrlParameters.concat(aUrlParams);
+		}
+		
+		if (aAllUrlParameters && aAllUrlParameters.length > 0) {
+			sUrl += "?" + aAllUrlParameters.join("&");
 		}
 		return sUrl;
 	};
@@ -2891,9 +2899,12 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/model/Model', 'sap/ui/model/odata/OD
 		var oRequest, sUrl, oRequestHandle,
 			oFunctionMetadata,
 			mRequests,
-			mUrlParameters, fnSuccess, fnError,
+			mUrlParams,
+			aUrlParams, 
+			fnSuccess, fnError,
 			sMethod = "GET",
-			aUrlParams = [],
+			aUrlParams,
+			mInputParams = {},
 			sBatchGroupId,
 			sChangeSetId,
 			mHeaders;
@@ -2902,7 +2913,7 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/model/Model', 'sap/ui/model/odata/OD
 			sBatchGroupId 	= mParameters.batchGroupId;
 			sChangeSetId 	= mParameters.changeSetId;
 			sMethod			= mParameters.method ? mParameters.method : sMethod;
-			mUrlParameters	= mParameters.urlParameters;
+			mUrlParams		= mParameters.urlParameters;
 			fnSuccess		= mParameters.success;
 			fnError			= mParameters.error;
 			mHeaders		= mParameters.headers;
@@ -2918,18 +2929,18 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/model/Model', 'sap/ui/model/odata/OD
 
 		if (oFunctionMetadata) {
 			if (oFunctionMetadata.parameter != null) {
-				jQuery.each(mUrlParameters, function (sParameterName, oParameterValue) {
-					var matchingParameters = jQuery.grep(oFunctionMetadata.parameter, function (oParameter) {
+				jQuery.each(mUrlParams, function (sParameterName, oParameterValue) {
+					var matchingParams = jQuery.grep(oFunctionMetadata.parameter, function (oParameter) {
 						return oParameter.name === sParameterName && oParameter.mode === "In";
 					});
-					if (matchingParameters != null && matchingParameters.length > 0) {
-						var matchingParameter = matchingParameters[0];
-						aUrlParams.push(sParameterName + "=" + ODataUtils.formatValue(oParameterValue, matchingParameter.type));
+					if (matchingParams != null && matchingParams.length > 0) {
+						mInputParams[sParameterName] = ODataUtils.formatValue(oParameterValue, matchingParams[0].type);
 					} else {
 						jQuery.sap.log.warning(this + " - Parameter '" + sParameterName + "' is not defined for function call '" + sFunctionName + "'!");
 					}
 				});
 			}
+			aUrlParams = ODataUtils._createUrlParamsArray(mInputParams);
 
 			sUrl = this._createRequestUrl(sFunctionName, null, aUrlParams, this.bUseBatch);
 

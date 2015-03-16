@@ -207,7 +207,7 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/Device', 'sap/ui/Global', 'sap/ui/ba
 			var aModules = this.oConfiguration.modules;
 			if ( this.oConfiguration.getDebug() ) {
 				// add debug module if configured
-				aModules.unshift("sap-ui-debug");
+				aModules.unshift("sap.ui.debug.DebugEnv");
 			}
 			// enforce the core library as the first loaded module
 			var i = jQuery.inArray("sap.ui.core.library", aModules);
@@ -1273,7 +1273,7 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/Device', 'sap/ui/Global', 'sap/ui/ba
 	
 			// if parameters have been used, update them with the new style sheet
 			if (sap.ui.core.theming && sap.ui.core.theming.Parameters) {
-				sap.ui.core.theming.Parameters._addLibraryTheme(sLibId);
+				sap.ui.core.theming.Parameters._addLibraryTheme(sLibId, cssPathAndName);
 			}
 		}
 	

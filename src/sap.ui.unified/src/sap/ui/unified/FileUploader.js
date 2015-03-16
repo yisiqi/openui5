@@ -556,12 +556,11 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/core/Control', './library'],
 		// !!!sap.ui.Device.browser.internet_explorer check: only for non IE browsers since there we need
 		// the button in front of the fileuploader
 		if (this.getWidth()) {
-			if (this.getButtonOnly()) {
+			if (this.getButtonOnly() && this.oBrowse.getDomRef()) {
 				this.oBrowse.getDomRef().style.width = this.getWidth();
-			} else {
-				// Recalculate the textfield width...
-				this._resizeDomElements();
 			}
+			// Recalculate the textfield width...
+			this._resizeDomElements();
 		}
 	};
 
@@ -581,7 +580,7 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/core/Control', './library'],
 		var oDomRef = this._oFilePathDomRef;
 		var sWidth = this.getWidth();
 
-		if (sWidth.substr( -1) == "%") {
+		if (sWidth.substr( -1) == "%" && oDomRef) {
 			// Special case - if the width is not in px, we only change the top element
 
 			// Resize all elements from the input field up to the control element itself.
@@ -592,18 +591,20 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/core/Control', './library'],
 
 			oDomRef.style.width = sWidth;
 		} else {
-			oDomRef.style.width = sWidth;
+			if (oDomRef) {
+				oDomRef.style.width = sWidth;
 
-			// Now make sure the field including the button has the correct size
-			var $fp = jQuery(this._oFilePathDomRef);
-			var _newWidth = $fp.outerWidth() - _buttonWidth;
-			if (_newWidth < 0) {
-				this.oFilePath.getDomRef().style.width = "0px";
-				if (!!!sap.ui.Device.browser.internet_explorer) {
-					this.oFileUpload.style.width = $b.outerWidth(true);
+				// Now make sure the field including the button has the correct size
+				var $fp = jQuery(this._oFilePathDomRef);
+				var _newWidth = $fp.outerWidth() - _buttonWidth;
+				if (_newWidth < 0) {
+					this.oFilePath.getDomRef().style.width = "0px";
+					if (!!!sap.ui.Device.browser.internet_explorer) {
+						this.oFileUpload.style.width = $b.outerWidth(true);
+					}
+				} else {
+					this.oFilePath.getDomRef().style.width = _newWidth + "px";
 				}
-			} else {
-				this.oFilePath.getDomRef().style.width = _newWidth + "px";
 			}
 		}
 	};
@@ -813,6 +814,13 @@ sap.ui.define(['jquery.sap.global', 'sap/ui/core/Control', './library'],
 						};
 
 						var sFilename = oFiles[0].name;
+
+						if (sap.ui.Device.browser.internet_explorer) {
+							var sContentType = oFiles[0].type;
+							oXhr.xhr.setRequestHeader("Content-Type", sContentType);
+							oXhr.requestHeaders.push({name: "Content-Type", value: sContentType});
+						}
+
 						var oRequestHeaders = oXhr.requestHeaders;
 
 						var fnProgressListener = function(oProgressEvent) {
